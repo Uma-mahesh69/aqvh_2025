@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+.env
+.venv
+.env*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VSCode/IDE
+.vscode/
+.idea/
+
+# Data artifacts (user said data folder exists separately; keep ignored just in case)
+data/
+*.csv
+*.parquet
+
+# Results
+quantum-fraud-detection/results/logs/*
+quantum-fraud-detection/results/figures/*
+
+# OS
+.DS_Store
+Thumbs.db
