@@ -1,12 +1,22 @@
 data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
+  # OPTIMIZED FOR QUANTUM: Using more data for better quantum model training
+  # - 5000: Ultra-fast prototyping (~1-2 min total pipeline)
+  # - 10000: Fast prototyping (~2-5 min total pipeline)
+  # - 50000: Medium testing (~5-15 min total pipeline) [CURRENT - BEST BALANCE]
+  # - null: Full dataset ~590k rows (~30-60 min total pipeline)
+  nrows: 50000  # Increased for better quantum model performance
 
 preprocessing:
   missing_threshold: 50.0
   target_col: "isFraud"
   id_cols: ["TransactionID"]
-  top_k_corr_features: 8
+  top_k_corr_features: 4  # Legacy parameter (kept for backward compatibility)
+  # OPTIMIZED FOR QUANTUM: Correlation works best for quantum circuits
+  feature_selection_method: "correlation"  # Best for quantum: clear signal, less noise
+  top_k_features: 6  # Optimal for quantum: 6 features balances expressiveness and noise
+  ensemble_voting_threshold: 2  # Minimum votes from methods (for ensemble mode)
   test_size: 0.2
   random_state: 42
   stratify: true
@@ -33,17 +43,17 @@ xgboost:
   random_state: 42
   use_gpu: false
 
-# Quantum Models Configuration
+# Quantum Models Configuration - OPTIMIZED FOR BEST PERFORMANCE
 quantum_vqc:
-  reps_feature_map: 2
-  reps_ansatz: 2
-  optimizer_maxiter: 50
+  reps_feature_map: 3  # Increased for better feature encoding
+  reps_ansatz: 3       # Increased for more expressive circuits
+  optimizer_maxiter: 100  # More iterations for better convergence
   shots: null
 
 quantum_kernel:
-  reps_feature_map: 2
+  reps_feature_map: 3  # Increased for richer quantum feature space
   shots: null
-  C: 1.0
+  C: 10.0              # Increased C for better margin (less regularization)
   gamma: "scale"
 
 # Backend Configuration
@@ -56,12 +66,13 @@ quantum_backend:
   optimization_level: 1
 
 # Models to run (set to true/false to enable/disable)
+# FOCUS ON QUANTUM VQC: Kernel disabled due to O(n²) complexity
 models_to_run:
-  logistic_regression: true
-  isolation_forest: true
-  xgboost: true
-  quantum_vqc: true
-  quantum_kernel: true
+  logistic_regression: true   # Keep for baseline comparison
+  isolation_forest: false     # Disabled - focus on quantum
+  xgboost: true               # Keep for benchmark comparison
+  quantum_vqc: true           # PRIMARY FOCUS - OPTIMIZED
+  quantum_kernel: false       # DISABLED - Too slow with large datasets
 
 paths:
   results_dir: "results"

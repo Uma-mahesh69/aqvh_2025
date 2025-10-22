@@ -14,7 +14,7 @@ Leverage **quantum machine learning** to demonstrate quantum advantage over clas
 
 ```
 quantum-fraud-detection/
-├── src/
+├── src/                         # Core source code
 │   ├── data_loader.py           # Data loading utilities
 │   ├── preprocessing.py          # Feature engineering & preprocessing
 │   ├── model_classical.py        # Classical ML models (LR, IF, XGBoost)
@@ -23,18 +23,29 @@ quantum-fraud-detection/
 │   ├── evaluation.py             # Metrics & visualization
 │   ├── results_comparison.py     # Comprehensive results analysis
 │   └── __init__.py
-├── configs/
-│   └── config.yaml               # Configuration for all models
-├── notebooks/
+├── configs/                      # Configuration files
+│   ├── config.yaml               # Main configuration
+│   └── env_template.txt          # IBM Quantum token template
+├── docs/                         # Documentation
+│   ├── README.md                 # Documentation index
+│   ├── GETTING_STARTED.md        # Setup guide
+│   ├── QUICK_START.md            # Fast start guide
+│   └── ... (see docs/README.md for full list)
+├── notebooks/                    # Jupyter notebooks
 │   ├── newfraud.ipynb           # Exploratory analysis
 │   └── IBMQiskit.ipynb          # IBM Quantum experiments
-├── results/
-│   ├── logs/                    # Training logs
-│   └── figures/                 # Visualizations & plots
-├── data/                        # Dataset directory
-├── run_all_models.py            # Main pipeline script
-├── requirements.txt             # Python dependencies
-└── README.md
+├── tests/                        # Test scripts
+│   ├── test_feature_selection.py
+│   └── test_pipeline.py
+├── results/                      # Output directory
+│   ├── figures/                 # Visualizations & plots
+│   └── logs/                    # Training logs
+├── logs/                         # Pipeline logs
+├── data/                         # Dataset directory
+├── run_all_models.py             # Main pipeline script
+├── run.py                        # Alternative runner
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
 ```
 
 ## 🚀 Quick Start
@@ -59,12 +70,21 @@ Or update paths in `configs/config.yaml`.
 
 ### 3. Run the Pipeline
 
-**Option A: Run all models (simulator)**
+**Option A: Fast Prototyping (RECOMMENDED - 2-5 minutes)**
 ```bash
+# Default config uses 10,000 rows for fast testing
 python run_all_models.py --config configs/config.yaml
 ```
 
-**Option B: Run on IBM Quantum Hardware**
+**Option B: Full Dataset (30-60 minutes)**
+```bash
+# Edit configs/config.yaml and set: nrows: null
+python run_all_models.py --config configs/config.yaml
+```
+
+> 💡 **Tip**: See [PROTOTYPING_GUIDE.md](PROTOTYPING_GUIDE.md) for optimization strategies
+
+**Option C: Run on IBM Quantum Hardware**
 
 1. Get your IBM Quantum token from [IBM Quantum Platform](https://quantum.ibm.com/)
 2. Update `configs/config.yaml`:
@@ -220,6 +240,16 @@ Contributions are welcome! Please:
 ## 📄 License
 
 MIT License - See LICENSE file for details
+
+## 📚 Documentation
+
+For detailed guides and documentation, see the **[docs/](docs/)** directory:
+- [Getting Started Guide](docs/GETTING_STARTED.md)
+- [Quick Start](docs/QUICK_START.md)
+- [Prototyping Guide](docs/PROTOTYPING_GUIDE.md)
+- [Feature Selection Guide](docs/FEATURE_SELECTION_GUIDE.md)
+- [Results Interpretation](docs/RESULTS_INTERPRETATION.md)
+- [Full Documentation Index](docs/README.md)
 
 ## 🔗 Resources
 

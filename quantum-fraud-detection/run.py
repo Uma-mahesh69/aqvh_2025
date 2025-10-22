@@ -27,13 +27,19 @@ def main(config_path: str):
     transaction_csv = cfg["data"]["transaction_csv"]
     identity_csv = cfg["data"]["identity_csv"]
     figures_dir = cfg["paths"]["figures_dir"]
+    nrows = cfg["data"].get("nrows", None)  # Load subset or all data
     
     # Ensure output directories exist
     os.makedirs(figures_dir, exist_ok=True)
     logging.info(f"Output directory: {figures_dir}")
 
     # Load + merge
-    df_txn, df_id = load_csvs(transaction_csv, identity_csv)
+    if nrows:
+        logging.info(f"Loading subset of {nrows} rows from each CSV")
+    else:
+        logging.info("Loading all data from CSVs")
+    df_txn, df_id = load_csvs(transaction_csv, identity_csv, nrows=nrows)
+    logging.info(f"Loaded {len(df_txn)} transactions and {len(df_id)} identity records")
     df = merge_on_transaction_id(df_txn, df_id)
 
     # Preprocess
@@ -42,6 +48,9 @@ def main(config_path: str):
         target_col=cfg["preprocessing"]["target_col"],
         id_cols=cfg["preprocessing"].get("id_cols", []),
         top_k_corr_features=cfg["preprocessing"]["top_k_corr_features"],
+        feature_selection_method=cfg["preprocessing"].get("feature_selection_method", "ensemble"),
+        top_k_features=cfg["preprocessing"].get("top_k_features", 8),
+        ensemble_voting_threshold=cfg["preprocessing"].get("ensemble_voting_threshold", 2),
     )
     df_processed, selected = preprocess_pipeline(df, pp_cfg)
 

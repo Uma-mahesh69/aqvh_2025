@@ -14,6 +14,10 @@ import logging
 import time
 from pathlib import Path
 
+# Configure matplotlib to use non-interactive backend (prevents tkinter threading warnings)
+import matplotlib
+matplotlib.use('Agg')
+
 from src.data_loader import load_csvs, merge_on_transaction_id
 from src.preprocessing import PreprocessConfig, preprocess_pipeline, split_data
 from src.model_classical import (
@@ -143,6 +147,7 @@ def main(config_path: str):
     # Setup paths
     transaction_csv = cfg["data"]["transaction_csv"]
     identity_csv = cfg["data"]["identity_csv"]
+    nrows = cfg["data"].get("nrows")  # Get nrows from config (None for all rows)
     figures_dir = cfg["paths"]["figures_dir"]
     results_dir = cfg["paths"]["results_dir"]
     
@@ -152,9 +157,13 @@ def main(config_path: str):
     # Load and preprocess data
     logging.info("\n" + "="*80)
     logging.info("Loading and preprocessing data...")
+    if nrows:
+        logging.info(f"PROTOTYPING MODE: Loading only {nrows:,} rows for faster testing")
+    else:
+        logging.info("FULL MODE: Loading all ~590,000 rows")
     logging.info("="*80)
     
-    df_txn, df_id = load_csvs(transaction_csv, identity_csv)
+    df_txn, df_id = load_csvs(transaction_csv, identity_csv, nrows=nrows)
     df = merge_on_transaction_id(df_txn, df_id)
     
     pp_cfg = PreprocessConfig(
@@ -162,8 +171,17 @@ def main(config_path: str):
         target_col=cfg["preprocessing"]["target_col"],
         id_cols=cfg["preprocessing"].get("id_cols", []),
         top_k_corr_features=cfg["preprocessing"]["top_k_corr_features"],
+        feature_selection_method=cfg["preprocessing"].get("feature_selection_method", "ensemble"),
+        top_k_features=cfg["preprocessing"].get("top_k_features", 8),
+        ensemble_voting_threshold=cfg["preprocessing"].get("ensemble_voting_threshold", 2),
     )
     df_processed, selected = preprocess_pipeline(df, pp_cfg)
+    
+    logging.info(f"\n{'='*80}")
+    logging.info(f"FEATURE SELECTION COMPLETE")
+    logging.info(f"Method: {pp_cfg.feature_selection_method}")
+    logging.info(f"Selected {len(selected)} features: {selected}")
+    logging.info(f"{'='*80}\n")
     
     # Split data
     X_train, X_test, y_train, y_test = split_data(
@@ -176,7 +194,7 @@ def main(config_path: str):
     
     logging.info(f"Training samples: {len(X_train)}, Test samples: {len(X_test)}")
     logging.info(f"Features: {X_train.shape[1]}")
-    logging.info(f"Class distribution - Train: {np.bincount(y_train)}, Test: {np.bincount(y_test)}")
+    logging.info(f"Class distribution - Train: {np.bincount(y_train.astype(int))}, Test: {np.bincount(y_test.astype(int))}")
     
     # Storage for results
     all_metrics = {}

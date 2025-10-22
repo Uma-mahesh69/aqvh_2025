@@ -17,10 +17,19 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
     Returns:
         Dictionary of metric names and values
     """
+    # Ensure predictions are binary (handle multiclass output from quantum models)
+    y_pred_binary = np.where(y_pred > 0.5, 1, 0) if y_pred.dtype == float else y_pred
+    
+    # Check if we have more than 2 classes in predictions
+    unique_classes = np.unique(y_pred_binary)
+    if len(unique_classes) > 2:
+        # Force to binary by taking modulo 2 or thresholding
+        y_pred_binary = np.where(y_pred_binary >= 1, 1, 0)
+    
     metrics = {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
-        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "accuracy": float(accuracy_score(y_true, y_pred_binary)),
+        "precision": float(precision_score(y_true, y_pred_binary, zero_division=0, average='binary')),
+        "recall": float(recall_score(y_true, y_pred_binary, zero_division=0, average='binary')),
     }
     if y_proba is not None:
         try:

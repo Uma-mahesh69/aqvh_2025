@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "Logistic Regression": {
+      "accuracy": 0.7771860986547086,
+      "precision": 0.044226044226044224,
+      "recall": 0.6792452830188679,
+      "roc_auc": 0.8162001127244425
+    },
+    "Isolation Forest": {
+      "accuracy": 0.8960201793721974,
+      "precision": 0.05084745762711865,
+      "recall": 0.33962264150943394,
+      "roc_auc": 0.42411497893126493
+    },
+    "XGBoost": {
+      "accuracy": 0.9871076233183856,
+      "precision": 0.8181818181818182,
+      "recall": 0.16981132075471697,
+      "roc_auc": 0.8494940819667731
+    }
+  },
+  "training_times": {
+    "Logistic Regression": 0.08524537086486816,
+    "Isolation Forest": 0.20776581764221191,
+    "XGBoost": 0.08192634582519531
+  }
+}

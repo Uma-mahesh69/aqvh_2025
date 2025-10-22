@@ -1,6 +1,7 @@
 data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
+  nrows: 5000  # Smaller subset for real quantum hardware (null for all rows)
 
 preprocessing:
   missing_threshold: 50.0
@@ -56,9 +57,9 @@ quantum_backend:
 
 # Models to run
 models_to_run:
-  logistic_regression: true
-  isolation_forest: true
-  xgboost: true
+  # logistic_regression: true
+  # isolation_forest: true
+  # xgboost: true
   quantum_vqc: true
   quantum_kernel: true
 

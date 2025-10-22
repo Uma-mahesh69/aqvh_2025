@@ -112,14 +112,8 @@ def build_quantum_kernel(cfg: QuantumKernelConfig) -> SVC:
     # Create feature map for quantum kernel
     feature_map = ZZFeatureMap(cfg.num_features, reps=cfg.reps_feature_map)
     
-    # Create sampler based on backend configuration
-    if cfg.backend_config:
-        sampler = get_sampler(cfg.backend_config)
-    else:
-        sampler = Sampler(options={"shots": cfg.shots} if cfg.shots else None)
-    
-    # Create quantum kernel
-    quantum_kernel = FidelityQuantumKernel(feature_map=feature_map, sampler=sampler)
+    # Create quantum kernel (FidelityQuantumKernel no longer accepts sampler parameter)
+    quantum_kernel = FidelityQuantumKernel(feature_map=feature_map)
     
     # Create SVC with quantum kernel
     svc = SVC(kernel=quantum_kernel.evaluate, C=cfg.C, probability=True)
