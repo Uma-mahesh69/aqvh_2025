@@ -1,25 +1,31 @@
 data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
-  # OPTIMIZED FOR QUANTUM: Using more data for better quantum model training
-  # - 5000: Ultra-fast prototyping (~1-2 min total pipeline)
-  # - 10000: Fast prototyping (~2-5 min total pipeline)
-  # - 50000: Medium testing (~5-15 min total pipeline) [CURRENT - BEST BALANCE]
-  # - null: Full dataset ~590k rows (~30-60 min total pipeline)
-  nrows: 50000  # Increased for better quantum model performance
+  # HACKATHON UPDATE: Testing new feature engineering + PCA pipeline
+  # - 5000: Ultra-fast prototyping (~5-10 min with new features) [RECOMMENDED FOR TESTING]
+  # - 10000: Fast prototyping (~15-30 min with new features)
+  # - 50000: SLOW with Quantum Kernel enabled (~6-12 hours!)
+  # - null: Full dataset ~590k rows (not recommended with Kernel)
+  nrows: 5000  # Start small to test new pipeline
 
 preprocessing:
   missing_threshold: 50.0
   target_col: "isFraud"
   id_cols: ["TransactionID"]
-  top_k_corr_features: 4  # Legacy parameter (kept for backward compatibility)
-  # OPTIMIZED FOR QUANTUM: Correlation works best for quantum circuits
-  feature_selection_method: "correlation"  # Best for quantum: clear signal, less noise
-  top_k_features: 6  # Optimal for quantum: 6 features balances expressiveness and noise
-  ensemble_voting_threshold: 2  # Minimum votes from methods (for ensemble mode)
+  
+  # --- NVIDIA INSIGHTS UPDATE ---
+  # Enhanced feature engineering creates 100+ features, PCA reduces to quantum-friendly dimensions
+  feature_selection_method: "pca"  # Options: "pca" or legacy "ensemble", "correlation", etc.
+  top_k_features: 12  # Increased from 8 to capture more engineered features
+  # --- END UPDATE ---
+
+  ensemble_voting_threshold: 2  # Minimum votes from methods (for legacy ensemble mode)
   test_size: 0.2
   random_state: 42
-  stratify: true
+  
+  # NVIDIA Insight: Time-based validation prevents data leakage in fraud detection
+  use_time_based_split: true  # Set to false for random split (not recommended)
+  stratify: true  # Only used if use_time_based_split is false
 
 # Classical Models Configuration
 logistic_regression:
@@ -36,12 +42,17 @@ isolation_forest:
   random_state: 42
 
 xgboost:
-  n_estimators: 100
-  max_depth: 6
-  learning_rate: 0.1
-  scale_pos_weight: null  # Set to class imbalance ratio if needed
+  # NVIDIA Insights: Winning Kaggle solution hyperparameters (1st place)
+  n_estimators: 2000  # Increased from 100 (use early stopping)
+  max_depth: 12       # Increased from 6 for deeper trees
+  learning_rate: 0.02 # Decreased from 0.1 for better convergence
+  subsample: 0.8      # Row sampling to prevent overfitting
+  colsample_bytree: 0.4  # Column sampling for diversity
+  scale_pos_weight: null  # Auto-calculated from class imbalance
   random_state: 42
-  use_gpu: false
+  use_gpu: false      # Set to true if GPU available
+  early_stopping_rounds: 100  # Stop if no improvement
+  eval_metric: 'auc'  # Primary metric for fraud detection
 
 # Quantum Models Configuration - OPTIMIZED FOR BEST PERFORMANCE
 quantum_vqc:
@@ -66,13 +77,14 @@ quantum_backend:
   optimization_level: 1
 
 # Models to run (set to true/false to enable/disable)
-# FOCUS ON QUANTUM VQC: Kernel disabled due to O(n²) complexity
+# HACKATHON UPDATE: Testing new feature engineering pipeline
+# Quantum Kernel enabled for small dataset (5k rows = ~5-10 min)
 models_to_run:
-  logistic_regression: true   # Keep for baseline comparison
-  isolation_forest: false     # Disabled - focus on quantum
-  xgboost: true               # Keep for benchmark comparison
-  quantum_vqc: true           # PRIMARY FOCUS - OPTIMIZED
-  quantum_kernel: false       # DISABLED - Too slow with large datasets
+  logistic_regression: true   # Baseline comparison
+  isolation_forest: false     # Disabled - not needed
+  xgboost: true               # Benchmark comparison
+  quantum_vqc: true           # PRIMARY FOCUS
+  quantum_kernel: true        # Enabled for testing (only works with small datasets!)
 
 paths:
   results_dir: "results"

@@ -123,6 +123,8 @@ class XGBoostConfig:
     n_estimators: int = 100
     max_depth: int = 6
     learning_rate: float = 0.1
+    subsample: float = 1.0  # Row sampling (0.8 recommended for large datasets)
+    colsample_bytree: float = 1.0  # Column sampling (0.4 recommended)
     scale_pos_weight: Optional[float] = None
     random_state: int = 42
     use_gpu: bool = False
@@ -147,6 +149,8 @@ def build_xgboost(cfg: XGBoostConfig):
         "n_estimators": cfg.n_estimators,
         "max_depth": cfg.max_depth,
         "learning_rate": cfg.learning_rate,
+        "subsample": cfg.subsample,
+        "colsample_bytree": cfg.colsample_bytree,
         "random_state": cfg.random_state,
         "eval_metric": "logloss",
         "use_label_encoder": False,

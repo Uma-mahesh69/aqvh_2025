@@ -2,12 +2,14 @@ from __future__ import annotations
 from typing import Dict, Optional
 import os
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, confusion_matrix, RocCurveDisplay
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, RocCurveDisplay, roc_curve
 import matplotlib.pyplot as plt
 
 
 def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dict[str, float]:
     """Compute classification metrics.
+    
+    NVIDIA Insight: AUC-ROC is the primary metric for fraud detection.
     
     Args:
         y_true: True labels
@@ -30,12 +32,17 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
         "accuracy": float(accuracy_score(y_true, y_pred_binary)),
         "precision": float(precision_score(y_true, y_pred_binary, zero_division=0, average='binary')),
         "recall": float(recall_score(y_true, y_pred_binary, zero_division=0, average='binary')),
+        "f1_score": float(f1_score(y_true, y_pred_binary, zero_division=0, average='binary')),
     }
+    
+    # AUC-ROC: Primary metric for fraud detection (NVIDIA insight)
     if y_proba is not None:
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, y_proba))
-        except Exception:
+        except Exception as e:
+            print(f"Warning: Could not compute ROC-AUC: {e}")
             pass
+    
     return metrics
 
 
