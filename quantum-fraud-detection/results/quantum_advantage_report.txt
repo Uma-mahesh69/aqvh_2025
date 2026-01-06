@@ -1,0 +1,78 @@
+================================================================================
+QUANTUM vs CLASSICAL FRAUD DETECTION - COMPREHENSIVE REPORT
+================================================================================
+
+CLASSICAL MODELS PERFORMANCE
+--------------------------------------------------------------------------------
+
+Logistic Regression:
+  Accuracy: 0.9750
+  Precision: 0.0000
+  Recall: 0.0000
+  F1_score: 0.0000
+  Roc_auc: 0.5000
+  Training Time: 0.01s
+
+Isolation Forest:
+  Accuracy: 0.9750
+  Precision: 0.0000
+  Recall: 0.0000
+  F1_score: 0.0000
+  Roc_auc: 0.5000
+  Training Time: 0.11s
+
+XGBoost:
+  Accuracy: 0.9750
+  Precision: 0.0000
+  Recall: 0.0000
+  F1_score: 0.0000
+  Roc_auc: 0.5000
+  Training Time: 0.04s
+
+
+QUANTUM MODELS PERFORMANCE
+--------------------------------------------------------------------------------
+
+Quantum VQC:
+  Accuracy: 0.0250
+  Precision: 0.0250
+  Recall: 1.0000
+  F1_score: 0.0488
+  Roc_auc: 0.0000
+  Training Time: 0.09s
+
+
+BEST MODELS BY METRIC
+--------------------------------------------------------------------------------
+Accuracy: Logistic Regression (Classical) - 0.9750
+Precision: Quantum VQC (Quantum) - 0.0250
+Recall: Quantum VQC (Quantum) - 1.0000
+
+
+QUANTUM ADVANTAGE ANALYSIS
+--------------------------------------------------------------------------------
+
+Accuracy:
+  Best Classical: 0.9750
+  Best Quantum: 0.0250
+  Improvement: -97.44%
+  -> Classical models perform better
+
+Precision:
+  Best Classical: 0.0000
+  Best Quantum: 0.0250
+  Improvement: +inf%
+  -> Quantum models show advantage!
+
+Recall:
+  Best Classical: 0.0000
+  Best Quantum: 1.0000
+  Improvement: +inf%
+  -> Quantum models show advantage!
+
+
+CONCLUSION
+--------------------------------------------------------------------------------
+
+
+================================================================================

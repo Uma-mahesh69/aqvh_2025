@@ -1,38 +1,49 @@
+
+# ==============================================================================
+# QUANTUM FRAUD DETECTION CONFIGURATION
+# ==============================================================================
+# This configuration file controls the data processing pipeline, model parameters,
+# and quantum backend settings.
+# ==============================================================================
+
+# Data Configuration
+# Data Configuration
 data:
+  # Paths to the IEEE-CIS dataset files
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
-  # HACKATHON UPDATE: Testing new feature engineering + PCA pipeline
-  # - 5000: Ultra-fast prototyping (~5-10 min with new features) [RECOMMENDED FOR TESTING]
-  # - 10000: Fast prototyping (~15-30 min with new features)
-  # - 50000: SLOW with Quantum Kernel enabled (~6-12 hours!)
-  # - null: Full dataset ~590k rows (not recommended with Kernel)
-  nrows: 5000  # Start small to test new pipeline
-
-preprocessing:
-  missing_threshold: 50.0
-  target_col: "isFraud"
-  id_cols: ["TransactionID"]
   
-  # --- NVIDIA INSIGHTS UPDATE ---
-  # Enhanced feature engineering creates 100+ features, PCA reduces to quantum-friendly dimensions
-  feature_selection_method: "pca"  # Options: "pca" or legacy "ensemble", "correlation", etc.
-  top_k_features: 12  # Increased from 8 to capture more engineered features
-  # --- END UPDATE ---
+  # Number of rows to load.
+  # Set to null to load the entire dataset.
+  nrows: 500
+  
+  # Target column name
+  target_col: "isFraud"  # IEEE-CIS target column is 'isFraud', not 'Class'
 
-  ensemble_voting_threshold: 2  # Minimum votes from methods (for legacy ensemble mode)
+# Data Preprocessing
+preprocessing:
+  # Features to select based on importance (Classical)
+  top_k_features: 3  
+  
+  # LLM Embedding dimensions (Quantum)
+  llm_n_components: 3
+  
   test_size: 0.2
   random_state: 42
-  
-  # NVIDIA Insight: Time-based validation prevents data leakage in fraud detection
-  use_time_based_split: true  # Set to false for random split (not recommended)
-  stratify: true  # Only used if use_time_based_split is false
 
-# Classical Models Configuration
+# Classical Models
+models_to_run:
+  logistic_regression: true
+  xgboost: true
+  quantum_vqc: false
+  quantum_kernel: true
+
+# Classical Model Hyperparameters
 logistic_regression:
-  penalty: "l2"
-  C: 1.0
   max_iter: 1000
-  class_weight: null
+  C: 1.0
+  penalty: "l2"
+  class_weight: "balanced"
   use_random_oversampler: true
 
 isolation_forest:
@@ -42,49 +53,44 @@ isolation_forest:
   random_state: 42
 
 xgboost:
-  # NVIDIA Insights: Winning Kaggle solution hyperparameters (1st place)
-  n_estimators: 2000  # Increased from 100 (use early stopping)
-  max_depth: 12       # Increased from 6 for deeper trees
-  learning_rate: 0.02 # Decreased from 0.1 for better convergence
-  subsample: 0.8      # Row sampling to prevent overfitting
-  colsample_bytree: 0.4  # Column sampling for diversity
-  scale_pos_weight: null  # Auto-calculated from class imbalance
+  n_estimators: 100
+  learning_rate: 0.1
+  max_depth: 3
+  scale_pos_weight: 1.0
+  subsample: 1.0
+  colsample_bytree: 1.0
   random_state: 42
-  use_gpu: false      # Set to true if GPU available
-  early_stopping_rounds: 100  # Stop if no improvement
-  eval_metric: 'auc'  # Primary metric for fraud detection
+  use_gpu: false
 
-# Quantum Models Configuration - OPTIMIZED FOR BEST PERFORMANCE
+# Quantum Model Hyperparameters
 quantum_vqc:
-  reps_feature_map: 3  # Increased for better feature encoding
-  reps_ansatz: 3       # Increased for more expressive circuits
-  optimizer_maxiter: 100  # More iterations for better convergence
-  shots: null
-
+  reps_feature_map: 1
+  reps_ansatz: 1
+  optimizer_maxiter: 50
+  shots: 1024
+  
+# Quantum Kernel Hyperparameters (SVM)
 quantum_kernel:
-  reps_feature_map: 3  # Increased for richer quantum feature space
-  shots: null
-  C: 10.0              # Increased C for better margin (less regularization)
+  reps_feature_map: 1
+  shots: 1024
+  C: 1.0
   gamma: "scale"
 
-# Backend Configuration
-# Options: "simulator" (local), "aer" (Aer simulator), "ibm_quantum" (real hardware)
+# Quantum Backend Configuration
 quantum_backend:
-  backend_type: "simulator"  # Change to "ibm_quantum" for real hardware
-  ibm_token: null  # Set your IBM Quantum token here or via environment variable
-  ibm_backend_name: null  # e.g., "ibm_brisbane", "ibmq_qasm_simulator"
+  # Options: "simulator", "aer", "ibm_quantum"
+  backend_type: "ibm_quantum"
+  
+  # IBM Quantum Token (Leave empty to use IBM_QUANTUM_TOKEN env var)
+  ibm_token: "BorwkFjl-h1TPnKClBJQegN7emvIiEzB6kdftx60r3Zr" 
+  
+  # Backend Name (e.g., "ibm_brisbane", "ibm_torino", "ibmq_qasm_simulator")
+  ibm_backend_name: "ibm_torino"
+  
+  # Simulation options
   shots: 1024
-  optimization_level: 1
-
-# Models to run (set to true/false to enable/disable)
-# HACKATHON UPDATE: Testing new feature engineering pipeline
-# Quantum Kernel enabled for small dataset (5k rows = ~5-10 min)
-models_to_run:
-  logistic_regression: true   # Baseline comparison
-  isolation_forest: false     # Disabled - not needed
-  xgboost: true               # Benchmark comparison
-  quantum_vqc: true           # PRIMARY FOCUS
-  quantum_kernel: true        # Enabled for testing (only works with small datasets!)
+  optimization_level: 3
+  resilience_level: 1
 
 paths:
   results_dir: "results"

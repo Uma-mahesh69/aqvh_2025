@@ -97,7 +97,12 @@ def train_and_evaluate_model(
         y_proba = None
         try:
             if hasattr(model, 'predict_proba'):
-                y_proba = model.predict_proba(X_test_np)[:, 1]
+                probas = model.predict_proba(X_test_np)
+                if probas.shape[1] == 2:
+                    y_proba = probas[:, 1]
+                else:
+                    # Handle case where only 1 class is present/predicted
+                    y_proba = probas[:, 0] if probas.shape[1] == 1 else np.zeros(len(y_pred))
             elif hasattr(model, 'decision_function'):
                 y_proba = model.decision_function(X_test_np)
         except Exception as e:
@@ -127,7 +132,10 @@ def train_and_evaluate_model(
         return metrics, training_time, model
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         logging.error(f"Error training {model_name}: {e}", exc_info=True)
+        print(f"CRITICAL ERROR TRAINING {model_name}: {e}")
         return None, None, None
 
 
@@ -174,8 +182,18 @@ def main(config_path: str):
         feature_selection_method=cfg["preprocessing"].get("feature_selection_method", "ensemble"),
         top_k_features=cfg["preprocessing"].get("top_k_features", 8),
         ensemble_voting_threshold=cfg["preprocessing"].get("ensemble_voting_threshold", 2),
+        use_llm_features=cfg["preprocessing"].get("use_llm_features", False),
+        llm_n_components=cfg["preprocessing"].get("llm_n_components", 8),
     )
-    df_processed, selected = preprocess_pipeline(df, pp_cfg)
+    df_processed, selected, artifacts = preprocess_pipeline(df, pp_cfg)
+    
+    # Save artifacts for Demo App
+    logging.info("Saving preprocessing artifacts for Demo App...")
+    import joblib
+    artifacts_dir = os.path.join(cfg["paths"]["results_dir"], "artifacts")
+    os.makedirs(artifacts_dir, exist_ok=True)
+    joblib.dump(artifacts, os.path.join(artifacts_dir, "preprocess_artifacts.joblib"))
+    logging.info(f"Artifacts saved to {artifacts_dir}")
     
     logging.info(f"\n{'='*80}")
     logging.info(f"FEATURE SELECTION COMPLETE")
@@ -207,10 +225,13 @@ def main(config_path: str):
     logging.info(f"Training samples: {len(X_train)}, Test samples: {len(X_test)}")
     logging.info(f"Features: {X_train.shape[1]}")
     logging.info(f"Class distribution - Train: {np.bincount(y_train.astype(int))}, Test: {np.bincount(y_test.astype(int))}")
+    print(f"DEBUG: Train Fraud Count: {np.sum(y_train)} / {len(y_train)}")
+    print(f"DEBUG: Test Fraud Count: {np.sum(y_test)} / {len(y_test)}")
     
     # Storage for results
     all_metrics = {}
     all_times = {}
+    trained_models = {}  # Store models for hybrid stacking
     models_to_run = cfg.get("models_to_run", {})
     
     # ========== CLASSICAL MODELS ==========
@@ -231,6 +252,7 @@ def main(config_path: str):
         if metrics:
             all_metrics["Logistic Regression"] = metrics
             all_times["Logistic Regression"] = train_time
+            trained_models["Logistic Regression"] = model
     
     # 2. Isolation Forest
     if models_to_run.get("isolation_forest", True):
@@ -247,6 +269,7 @@ def main(config_path: str):
         if metrics:
             all_metrics["Isolation Forest"] = metrics
             all_times["Isolation Forest"] = train_time
+            # IF doesn't support predict_proba in the same way, usually skip for stacking
     
     # 3. XGBoost
     if models_to_run.get("xgboost", True):
@@ -267,6 +290,7 @@ def main(config_path: str):
         if metrics:
             all_metrics["XGBoost"] = metrics
             all_times["XGBoost"] = train_time
+            trained_models["XGBoost"] = model
     
     # ========== QUANTUM MODELS ==========
     
@@ -277,6 +301,7 @@ def main(config_path: str):
         ibm_backend_name=cfg["quantum_backend"].get("ibm_backend_name"),
         shots=cfg["quantum_backend"]["shots"],
         optimization_level=cfg["quantum_backend"]["optimization_level"],
+        resilience_level=cfg["quantum_backend"].get("resilience_level", 1),
     )
     
     num_features = X_train.shape[1]
@@ -289,17 +314,91 @@ def main(config_path: str):
             reps_ansatz=cfg["quantum_vqc"]["reps_ansatz"],
             optimizer_maxiter=cfg["quantum_vqc"]["optimizer_maxiter"],
             shots=cfg["quantum_vqc"]["shots"],
+            entanglement=cfg["quantum_vqc"].get("entanglement", "linear"),
             backend_config=backend_cfg,
         )
+        # --- VQC SPECIFIC BALANCING ---
+        # Quantum models are slow and sensitive to imbalance. 
+        # We use RandomUnderSampler to create a compact, balanced dataset (e.g., 500 vs 500).
+        try:
+            from imblearn.under_sampling import RandomUnderSampler
+            # Target ~1000 samples max for reasonable training time on simulator
+            rus = RandomUnderSampler(sampling_strategy='auto', random_state=42)
+            if len(np.unique(y_train)) > 1:
+                X_train_res, y_train_res = rus.fit_resample(X_train, y_train)
+                
+                # Limit total samples if still too large (e.g. >1000) for VQC speed
+                if len(X_train_res) > 1000:
+                    idx = np.random.choice(len(X_train_res), 1000, replace=False)
+                    X_train_vqc = X_train_res.iloc[idx] if hasattr(X_train_res, 'iloc') else X_train_res[idx]
+                    y_train_vqc = y_train_res.iloc[idx] if hasattr(y_train_res, 'iloc') else y_train_res[idx]
+                else:
+                    X_train_vqc, y_train_vqc = X_train_res, y_train_res
+                    
+                logging.info(f"VQC Balancing: Resampled from {len(X_train)} to {len(X_train_vqc)} samples ({np.sum(y_train_vqc)} fraud)")
+            else:
+                 logging.warning("VQC Balancing skipped: Training data has only 1 class.")
+                 X_train_vqc, y_train_vqc = X_train, y_train
+        except Exception as e:
+            logging.warning(f"VQC Balancing disabled due to error: {e}. Using full dataset.")
+            X_train_vqc, y_train_vqc = X_train, y_train
+            
         metrics, train_time, model = train_and_evaluate_model(
             "Quantum VQC", train_vqc, vqc_cfg,
-            X_train, y_train, X_test, y_test, figures_dir
+            X_train_vqc, y_train_vqc, X_test, y_test, figures_dir
         )
         if metrics:
             all_metrics["Quantum VQC"] = metrics
             all_times["Quantum VQC"] = train_time
-    
-    # 5. Quantum Kernel
+            trained_models["Quantum VQC"] = model
+            
+            # --- HYBRID STACKING ---
+            # Stacking XGBoost + Quantum VQC
+            if "XGBoost" in trained_models:
+                logging.info("\n" + "-"*40)
+                logging.info("Running Hybrid Stacking (XGBoost + VQC)...")
+                try:
+                    xgb_model = trained_models["XGBoost"]
+                    vqc_model = trained_models["Quantum VQC"]
+                    
+                    # Convert X_test to numpy if needed
+                    X_test_np = X_test.values if hasattr(X_test, "values") else X_test
+                    y_test_np = y_test.values if hasattr(y_test, "values") else y_test
+                    
+                    # Get probabilities safely
+                    p_xgb_raw = xgb_model.predict_proba(X_test_np)
+                    if p_xgb_raw.shape[1] == 2:
+                        p_xgb = p_xgb_raw[:, 1]
+                    else:
+                        p_xgb = p_xgb_raw[:, 0] if p_xgb_raw.shape[1] == 1 else np.zeros(len(y_test_np))
+                    # VQC usually outputs gradients or probabilities depending on objective
+                    # NeuralNetworkClassifier uses predict to get classes, but underlying network might not expose predict_proba effortlessly
+                    # Qiskit's NeuralNetworkClassifier does not strictly always implement predict_proba in early versions
+                    # But if interpretation is set, it works. Default is None which maps to parity->probability.
+                    
+                    # check if vqc has predict_proba
+                    if hasattr(vqc_model, "predict_proba"):
+                        p_vqc = vqc_model.predict_proba(X_test_np)[:, 1]
+                        
+                        # Soft Voting
+                        p_hybrid = 0.5 * p_xgb + 0.5 * p_vqc
+                        y_pred_hybrid = (p_hybrid > 0.5).astype(int)
+                        
+                        hybrid_metrics = eval_mod.compute_metrics(y_test_np, y_pred_hybrid, p_hybrid)
+                        all_metrics["Hybrid (XGB+VQC)"] = hybrid_metrics
+                        logging.info(f"Hybrid Metrics: {hybrid_metrics}")
+                        
+                        eval_mod.save_confusion_matrix(
+                            y_test_np, y_pred_hybrid,
+                            os.path.join(figures_dir, f"confusion_hybrid_xgb_vqc.png")
+                        )
+                    else:
+                        logging.warning("VQC model does not support predict_proba - skipping stacking")
+                        
+                except Exception as e:
+                    logging.warning(f"Hybrid stacking failed: {e}")
+
+    # 5. Quantum Kernel Support Vector Classifier
     if models_to_run.get("quantum_kernel", True):
         qk_cfg = QuantumKernelConfig(
             num_features=num_features,
@@ -316,6 +415,22 @@ def main(config_path: str):
         if metrics:
             all_metrics["Quantum Kernel"] = metrics
             all_times["Quantum Kernel"] = train_time
+
+    # ========== SAVE MODELS ==========
+    logging.info("\n" + "="*80)
+    logging.info("Saving trained models...")
+    models_dir = os.path.join(cfg["paths"]["results_dir"], "models")
+    os.makedirs(models_dir, exist_ok=True)
+    
+    for name, model in trained_models.items():
+        safe_name = name.replace(" ", "_").lower()
+        model_path = os.path.join(models_dir, f"{safe_name}.joblib")
+        try:
+            import joblib
+            joblib.dump(model, model_path)
+            logging.info(f"Saved {name} to {model_path}")
+        except Exception as e:
+            logging.warning(f"Could not save {name}: {e}")
     
     # ========== RESULTS COMPARISON ==========
     

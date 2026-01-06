@@ -24,6 +24,10 @@ class PreprocessConfig:
     feature_selection_method: str = "pca"  # "pca", "ensemble", "correlation", "mutual_info", "rf_importance", "rfe"
     top_k_features: Optional[int] = 8  # Number of features to select or n_components for PCA
     ensemble_voting_threshold: int = 2  # Minimum votes needed from methods (for ensemble)
+    
+    # LLM Config
+    use_llm_features: bool = False
+    llm_n_components: int = 8
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -271,6 +275,23 @@ def select_by_ensemble(df: pd.DataFrame, target: str, k: int, voting_threshold: 
     logging.info(f"{'='*60}\n")
     return selected_features, dict(vote_counts)
 
+def select_by_l1(df: pd.DataFrame, target: str, k: int, random_state: int = 42) -> List[str]:
+    """Select top k features using L1 regularization (Lasso)."""
+    if target not in df.columns:
+        raise KeyError(f"Target '{target}' not in dataframe")
+    X = df.drop(columns=[target])
+    y = df[target]
+    
+    # Use Logistic Regression with L1 penalty
+    # C=0.1 means strong regularization -> sparse solution
+    model = LogisticRegression(penalty='l1', C=0.1, solver='liblinear', random_state=random_state)
+    model.fit(X, y)
+    
+    coefs = pd.Series(np.abs(model.coef_[0]), index=X.columns)
+    top_features = coefs.sort_values(ascending=False).head(k).index.tolist()
+    logging.info(f"L1 (Lasso) - Top {k} features: {top_features}")
+    return top_features
+
 def select_features_advanced(
     df: pd.DataFrame, target: str, method: str = "ensemble", k: int = 8,
     voting_threshold: int = 2, random_state: int = 42
@@ -287,6 +308,8 @@ def select_features_advanced(
         return select_by_rf_importance(df, target, k, random_state), None
     elif method == "rfe":
         return select_by_rfe(df, target, k, random_state), None
+    elif method == "l1":
+        return select_by_l1(df, target, k, random_state), None
     elif method == "ensemble":
         return select_by_ensemble(df, target, k, voting_threshold, random_state)
     else:
@@ -361,7 +384,7 @@ def split_data_time_based(
 def preprocess_pipeline(
     df_merged: pd.DataFrame,
     cfg: PreprocessConfig,
-) -> Tuple[pd.DataFrame, List[str]]:
+) -> Tuple[pd.DataFrame, List[str], Dict]:
     """
     Complete preprocessing pipeline:
     1. Feature Engineering
@@ -372,6 +395,28 @@ def preprocess_pipeline(
     """
     # --- 1. Feature Engineering ---
     df = engineer_features(df_merged)
+
+    # --- 1.5 LLM Feature Extraction (New) ---
+    if cfg.use_llm_features:
+        logging.info("Starting LLM Feature Extraction...")
+        try:
+            from .feature_llm import LLMFeatureExtractor
+            # Define text columns to use
+            text_cols = ['DeviceInfo', 'P_emaildomain', 'R_emaildomain', 'id_30', 'id_31', 'DeviceType']
+            
+            # Initialize Extractor
+            llm_extractor = LLMFeatureExtractor(n_components=cfg.llm_n_components)
+            
+            # Generate Embeddings (returns DataFrame with 'llm_0', 'llm_1'...)
+            df_llm = llm_extractor.fit_transform(df, text_cols)
+            
+            # Concatenate features
+            original_len = len(df.columns)
+            df = pd.concat([df, df_llm], axis=1)
+            logging.info(f"Added {len(df_llm.columns)} LLM features. Total cols: {original_len} -> {len(df.columns)}")
+            
+        except Exception as e:
+            logging.warning(f"LLM Feature Extraction failed: {e}. Proceeding without LLM features.")
 
     # --- 2. Cleaning ---
     df = drop_high_missing(df, cfg.missing_threshold)
@@ -391,6 +436,15 @@ def preprocess_pipeline(
     # Define features to be used for PCA or selection (exclude TransactionDT from features)
     all_features = [c for c in df.columns if c not in exclude_cols]
     
+    # Define features to be used for PCA or selection (exclude TransactionDT from features)
+    all_features = [c for c in df.columns if c not in exclude_cols]
+    
+    # Collect artifacts for inference (initialize)
+    artifacts = {
+        'scaler': scaler,
+        'exclude_cols': exclude_cols
+    }
+    
     # --- 5. Dimensionality Reduction (PCA) or Feature Selection ---
     k = cfg.top_k_features if cfg.top_k_features is not None else len(all_features)
     
@@ -406,6 +460,10 @@ def preprocess_pipeline(
         # Combine PCA components with target/id columns
         df_final = pd.concat([df[exclude_cols], df_pca], axis=1)
         selected_features = pca_cols
+        
+        artifacts['pca'] = pca
+        artifacts['pca_cols'] = pca_cols
+        artifacts['pca_input_features'] = all_features
         
     elif k > 0:
         # --- Legacy Feature Selection ---
@@ -432,4 +490,9 @@ def preprocess_pipeline(
     # Ensure target column is int
     df_final[cfg.target_col] = df_final[cfg.target_col].astype(int)
     
-    return df_final, selected_features
+    if 'llm_extractor' in locals():
+        artifacts['llm_extractor'] = llm_extractor
+        
+    artifacts['selected_features'] = selected_features
+    
+    return df_final, selected_features, artifacts

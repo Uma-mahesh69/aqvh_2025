@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Literal
+from typing import Optional, Literal
 import numpy as np
+import logging
 
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import ZZFeatureMap, TwoLocal
@@ -10,9 +12,10 @@ from qiskit_algorithms.optimizers import COBYLA
 from qiskit_machine_learning.neural_networks import EstimatorQNN
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
 from qiskit_machine_learning.kernels import FidelityQuantumKernel
+from qiskit_algorithms.state_fidelities import ComputeUncompute
 from sklearn.svm import SVC
 
-from .quantum_backend import BackendConfig, get_estimator, get_sampler
+from .quantum_backend import BackendConfig, get_estimator, get_sampler, transpile_circuit
 
 
 @dataclass
@@ -23,6 +26,7 @@ class QuantumConfig:
     optimizer_maxiter: int = 100
     shots: Optional[int] = None  # None -> default, else used in Estimator options
     initial_point_seed: int = 42
+    entanglement: str = "linear"  # linear, full, circular
     backend_config: Optional[BackendConfig] = None
 
 
@@ -37,7 +41,13 @@ def build_vqc(cfg: QuantumConfig) -> NeuralNetworkClassifier:
     """
     # Create feature map and ansatz
     feature_map = ZZFeatureMap(cfg.num_features, reps=cfg.reps_feature_map)
-    ansatz = TwoLocal(cfg.num_features, rotation_blocks="ry", entanglement_blocks="cz", reps=cfg.reps_ansatz)
+    ansatz = TwoLocal(
+        cfg.num_features, 
+        rotation_blocks="ry", 
+        entanglement_blocks="cz", 
+        entanglement=cfg.entanglement,
+        reps=cfg.reps_ansatz
+    )
 
     # Compose them into a single circuit
     qc = QuantumCircuit(cfg.num_features)
@@ -51,6 +61,24 @@ def build_vqc(cfg: QuantumConfig) -> NeuralNetworkClassifier:
         estimator = Estimator(options={"shots": cfg.shots} if cfg.shots else None)
 
     # Create QNN with the composed circuit
+    # CRITICAL FIX for IBM Runtime >March 2024: Circuit must be transpiled to target ISA
+    
+    # We need to access the real backend object from the estimator if possible, 
+    # but the Estimator hides it. We should pass the backend name or object in config 
+    # and use transpiler service.
+    
+    # Ideally, we transpile before passing to QNN.
+    # QNN takes a circuit. We can transpile the circuit if we have the backend.
+    
+    qnn = None
+    
+    # Check if we need transpilation (IBM Quantum)
+    # Transpile circuit if backend config is provided (handles IBM Quantum ISA requirements)
+    if cfg.backend_config:
+        print("DEBUG: Checking/Transpiling VQC Circuit...")
+        qc = transpile_circuit(qc, cfg.backend_config, scrub_parameters=False)
+        print("DEBUG: Transpilation Check Complete.")
+
     qnn = EstimatorQNN(
         circuit=qc,
         estimator=estimator,
@@ -110,10 +138,36 @@ def build_quantum_kernel(cfg: QuantumKernelConfig) -> SVC:
         SVC with quantum kernel
     """
     # Create feature map for quantum kernel
-    feature_map = ZZFeatureMap(cfg.num_features, reps=cfg.reps_feature_map)
+    # Create feature map for quantum kernel
+    if cfg.backend_config and cfg.backend_config.backend_type == "ibm_quantum":
+        # Use ZFeatureMap (Simple Diagonal) to fix dimension mismatch errors 
+        # (EfficientSU2 has trainable params > input dim, ZFeatureMap is 1:1)
+        from qiskit.circuit.library import ZFeatureMap
+        logging.info("Using ZFeatureMap for Hardware (Robust & Simple)")
+        feature_map = ZFeatureMap(cfg.num_features, reps=cfg.reps_feature_map)
+    else:
+        feature_map = ZZFeatureMap(cfg.num_features, reps=cfg.reps_feature_map)
+    
+    # IMP: Transpile feature map for IBM Backend ISA compliance
+    # IMP: Transpile feature map for IBM Backend ISA compliance
+    if cfg.backend_config:
+        feature_map = transpile_circuit(
+            feature_map, 
+            cfg.backend_config, 
+            scrub_parameters=True  # Fix for Kernel 'name conflict' bug
+        )
+
     
     # Create quantum kernel (FidelityQuantumKernel no longer accepts sampler parameter)
-    quantum_kernel = FidelityQuantumKernel(feature_map=feature_map)
+    # We must create a Fidelity instance (ComputeUncompute) with the appropriate sampler
+    if cfg.backend_config:
+        sampler = get_sampler(cfg.backend_config)
+    else:
+        sampler = Sampler(options={"shots": cfg.shots} if cfg.shots else None)
+        
+    fidelity = ComputeUncompute(sampler=sampler)
+    
+    quantum_kernel = FidelityQuantumKernel(feature_map=feature_map, fidelity=fidelity)
     
     # Create SVC with quantum kernel
     svc = SVC(kernel=quantum_kernel.evaluate, C=cfg.C, probability=True)

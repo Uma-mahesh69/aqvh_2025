@@ -205,11 +205,11 @@ def create_quantum_advantage_report(
                 report_lines.append(f"  Improvement: {improvement:+.2f}%")
                 
                 if improvement > 0:
-                    report_lines.append(f"  → Quantum models show advantage!")
+                    report_lines.append(f"  -> Quantum models show advantage!")
                 elif improvement < -5:
-                    report_lines.append(f"  → Classical models perform better")
+                    report_lines.append(f"  -> Classical models perform better")
                 else:
-                    report_lines.append(f"  → Performance is comparable")
+                    report_lines.append(f"  -> Performance is comparable")
     
     # Conclusion
     report_lines.append("\n")
@@ -238,7 +238,7 @@ def create_quantum_advantage_report(
     report_lines.append("=" * 80)
     
     # Save report
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(report_lines))
     
     print(f"Quantum advantage report saved to: {output_path}")
