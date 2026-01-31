@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import os
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, RocCurveDisplay, roc_curve
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, RocCurveDisplay, roc_curve, precision_recall_curve
 import matplotlib.pyplot as plt
 
 
@@ -39,6 +39,7 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
     metrics["fpr"] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0
     
+    
     # AUC-ROC: Primary metric for fraud detection (NVIDIA insight)
     if y_proba is not None:
         try:
@@ -48,6 +49,36 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
             pass
     
     return metrics
+
+
+def find_optimal_threshold(y_true, y_proba) -> Tuple[float, float]:
+    """
+    Find the threshold that maximizes the F1 score.
+    Crucial for imbalanced fraud data where 0.5 is rarely optimal.
+    
+    Returns:
+        best_threshold: The threshold giving max F1
+        best_f1: The max F1 score
+    """
+    precision, recall, thresholds = precision_recall_curve(y_true, y_proba)
+    # F1 = 2 * (P * R) / (P + R)
+    numerator = 2 * precision * recall
+    denominator = precision + recall
+    f1_scores = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator!=0)
+    
+    # Remove NaNs
+    f1_scores = np.nan_to_num(f1_scores)
+    
+    idx = np.argmax(f1_scores)
+    best_f1 = f1_scores[idx]
+    
+    # thresholds array is 1 shorter than precision/recall, so we pad or clamp
+    if idx < len(thresholds):
+        best_threshold = thresholds[idx]
+    else:
+        best_threshold = thresholds[-1]
+        
+    return float(best_threshold), float(best_f1)
 
 
 def save_pr_curve(estimator, X_test, y_test, out_path: str) -> None:

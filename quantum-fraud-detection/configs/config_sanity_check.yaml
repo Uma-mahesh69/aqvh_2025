@@ -2,7 +2,7 @@
 data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
-  nrows: 15000
+  nrows: 500
   target_col: "isFraud" # Correct target for IEEE-CIS
 
 preprocessing:

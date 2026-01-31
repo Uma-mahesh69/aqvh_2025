@@ -59,6 +59,11 @@ def get_estimator(cfg: BackendConfig):
         if not IBM_AVAILABLE:
             raise ValueError("qiskit-ibm-runtime not installed. Install with: pip install qiskit-ibm-runtime")
         
+        # Auto-load from environment if not provided
+        if not cfg.ibm_token:
+            import os
+            cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
+
         if not cfg.ibm_token:
             raise ValueError(
                 "CRITICAL: IBM Quantum Token is MISSING for 'ibm_quantum' backend.\n"
@@ -159,6 +164,11 @@ def get_sampler(cfg: BackendConfig):
         if not IBM_AVAILABLE:
             raise ValueError("qiskit-ibm-runtime not installed. Install with: pip install qiskit-ibm-runtime")
         
+        # Auto-load from environment if not provided
+        if not cfg.ibm_token:
+            import os
+            cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
+
         if not cfg.ibm_token:
             raise ValueError(
                 "CRITICAL: IBM Quantum Token is MISSING for 'ibm_quantum' backend.\n"
@@ -212,6 +222,10 @@ def transpile_circuit(circuit, cfg: BackendConfig, scrub_parameters: bool = Fals
         # Initialize Service
         try:
              # Try simple init first (env var or default)
+             if not cfg.ibm_token:
+                 import os
+                 cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
+
              if cfg.ibm_token:
                  try:
                     service = QiskitRuntimeService(channel="ibm_quantum", token=cfg.ibm_token)

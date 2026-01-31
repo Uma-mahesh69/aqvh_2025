@@ -82,7 +82,7 @@ quantum_backend:
   backend_type: "ibm_quantum"
   
   # IBM Quantum Token (Leave empty to use IBM_QUANTUM_TOKEN env var)
-  ibm_token: "eQK5CG9nAWjsS_Gjh_Im4UzT_5R23rmKOJ0_sGIvt9Yi" 
+  ibm_token: null # Set via env var IBM_QUANTUM_TOKEN
   
   # Backend Name (e.g., "ibm_brisbane", "ibm_torino", "ibmq_qasm_simulator")
   ibm_backend_name: "ibm_torino"

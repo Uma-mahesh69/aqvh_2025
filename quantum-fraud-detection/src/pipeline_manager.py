@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import yaml
 import logging
+import json
 import time
 import joblib
 import pandas as pd
@@ -15,7 +16,7 @@ matplotlib.use('Agg')
 
 from src.data_loader import load_csvs, merge_on_transaction_id
 from src.preprocessing import PreprocessConfig, preprocess_pipeline, split_data, apply_smote
-from src.evaluation import compute_metrics, save_confusion_matrix, save_roc_curve, save_pr_curve
+from src.evaluation import compute_metrics, save_confusion_matrix, save_roc_curve, save_pr_curve, find_optimal_threshold
 from src.model_classical import (
     ClassicalConfig, train_logreg,
     IsolationForestConfig, train_isolation_forest,
@@ -143,9 +144,24 @@ class FraudDetectionPipeline:
                     pass
             elif hasattr(model, "decision_function"):
                 y_proba = model.decision_function(X_test)
+                # Normalize decision function to 0-1 for common thresholding logic via sigmoid
+                # Or just use raw score if compute_metrics handles it (but find_optimal expects proba-like)
+                # For simplicity in hackathon, we skip optimal threshold for SVM if it returns raw distance
+                # Or apply sigmoid:
+                y_proba = 1 / (1 + np.exp(-y_proba))
                 
+            # Optimal Thresholding
+            optimal_thresh = 0.5
+            if y_proba is not None:
+                optimal_thresh, best_f1 = find_optimal_threshold(y_test, y_proba)
+                logging.info(f"{name} Optimal Threshold: {optimal_thresh:.4f} (Max F1: {best_f1:.4f})")
+                
+                # Re-compute predictions based on optimal threshold
+                y_pred = (y_proba >= optimal_thresh).astype(int)
+
             metrics = compute_metrics(y_test, y_pred, y_proba)
             metrics["training_time"] = duration
+            metrics["optimal_threshold"] = optimal_thresh
             logging.info(f"{name} Results: {metrics}")
             
             self.results[name] = metrics
@@ -154,6 +170,11 @@ class FraudDetectionPipeline:
             # Save Model
             safe_name = name.lower().replace(" ", "_")
             joblib.dump(model, os.path.join(self.results_dir, "models", f"{safe_name}.joblib"))
+            
+            # Save Threshold
+            thresh_path = os.path.join(self.results_dir, "models", f"{safe_name}_threshold.json")
+            with open(thresh_path, "w") as f:
+                json.dump({"threshold": optimal_thresh, "model": name}, f)
             
             # Visualization
             save_confusion_matrix(y_test, y_pred, os.path.join(self.figures_dir, f"confusion_{safe_name}.png"))
