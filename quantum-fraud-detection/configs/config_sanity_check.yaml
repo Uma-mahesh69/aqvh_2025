@@ -2,13 +2,15 @@
 data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
-  nrows: 200
+  nrows: 15000
   target_col: "isFraud" # Correct target for IEEE-CIS
 
 preprocessing:
   missing_threshold: 50.0 # From run_all_models logic
   top_k_features: 4
   llm_n_components: 3
+  use_smote: true
+  smote_k_neighbors: 3
   test_size: 0.2
   random_state: 42
   target_col: "isFraud" # Redundant but safe

@@ -4,7 +4,7 @@ Uses Sentence-BERT to generate semantic embeddings from transaction metadata.
 """
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 from sklearn.decomposition import PCA
 import logging
 
@@ -131,3 +131,33 @@ class LLMFeatureExtractor:
         """Fit and transform in one step."""
         self.fit(df, text_cols)
         return self.transform(df, text_cols)
+
+
+def add_llm_features(df: pd.DataFrame, config) -> Tuple[pd.DataFrame, 'LLMFeatureExtractor']:
+    """
+    Wrapper to add LLM features to dataframe.
+    
+    Args:
+        df: Input dataframe
+        config: PreprocessConfig object (or similar with llm_n_components)
+        
+    Returns:
+        DataFrame with LLM features added
+        Fitted LLMFeatureExtractor object
+    """
+    try:
+        n_components = getattr(config, 'llm_n_components', 8)
+        extractor = LLMFeatureExtractor(n_components=n_components)
+        
+        # Standard columns to use for context
+        text_cols = ['TransactionAmt', 'ProductCD', 'card4', 'card6', 'P_emaildomain', 'R_emaildomain']
+        
+        # Fit transform
+        df_llm = extractor.fit_transform(df, text_cols)
+        
+        return df_llm, extractor
+        
+    except Exception as e:
+        logging.error(f"Error in add_llm_features: {e}")
+        # Return empty dataframe with correct index if failure
+        return pd.DataFrame(index=df.index), None

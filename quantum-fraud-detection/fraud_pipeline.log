@@ -1,0 +1,41 @@
+2026-01-09 14:58:18,818 - INFO - Initializing Pipeline with config: configs/config_sanity_check.yaml
+2026-01-09 14:58:18,822 - INFO - Loading Data...
+2026-01-09 14:58:41,227 - INFO - Preprocessing Data...
+2026-01-09 14:58:41,232 - INFO - Starting ENHANCED feature engineering (NVIDIA insights)...
+2026-01-09 14:58:41,284 - INFO - Created UID with 200 unique users
+2026-01-09 14:58:41,322 - INFO - Created 26 UID-based features
+2026-01-09 14:58:41,361 - INFO - Feature engineering complete. Shape: (200, 486) (52 new features)
+2026-01-09 14:58:41,370 - INFO - Dropping 228 columns with > 50.0% missing values.
+2026-01-09 14:58:41,556 - INFO - Applying PCA to reduce 256 features to 4 components.
+2026-01-09 14:58:41,633 - INFO - --- Training Logistic Regression ---
+2026-01-09 14:58:41,695 - INFO - Logistic Regression Results: {'accuracy': 0.825, 'precision': 0.125, 'recall': 1.0, 'f1_score': 0.2222222222222222, 'fpr': 0.1794871794871795, 'roc_auc': 0.8974358974358975, 'training_time': 0.04367399215698242}
+2026-01-09 14:58:42,385 - INFO - --- Training Isolation Forest ---
+2026-01-09 14:58:42,672 - INFO - Isolation Forest Results: {'accuracy': 0.875, 'precision': 0.0, 'recall': 0.0, 'f1_score': 0.0, 'fpr': 0.10256410256410256, 'roc_auc': 0.10256410256410253, 'training_time': 0.27820372581481934}
+2026-01-09 14:58:42,809 - INFO - --- Training XGBoost ---
+2026-01-09 14:58:42,880 - INFO - XGBoost Results: {'accuracy': 0.975, 'precision': 0.0, 'recall': 0.0, 'f1_score': 0.0, 'fpr': 0.0, 'roc_auc': 0.782051282051282, 'training_time': 0.06173396110534668}
+2026-01-09 14:58:43,500 - INFO - Pipeline Execution Complete. Summary saved.
+2026-01-09 14:58:43,500 - INFO - Pipeline finished successfully.
+2026-01-09 14:59:09,663 - INFO - Initializing Pipeline with config: configs/config_sanity_check.yaml
+2026-01-09 14:59:09,667 - INFO - Loading Data...
+2026-01-09 14:59:33,041 - INFO - Preprocessing Data...
+2026-01-09 14:59:33,048 - INFO - Starting ENHANCED feature engineering (NVIDIA insights)...
+2026-01-09 14:59:33,110 - INFO - Created UID with 200 unique users
+2026-01-09 14:59:33,142 - INFO - Created 26 UID-based features
+2026-01-09 14:59:33,180 - INFO - Feature engineering complete. Shape: (200, 486) (52 new features)
+2026-01-09 14:59:33,188 - INFO - Dropping 228 columns with > 50.0% missing values.
+2026-01-09 14:59:33,393 - INFO - Applying PCA to reduce 256 features to 4 components.
+2026-01-09 14:59:33,498 - INFO - Applying SMOTE to training data...
+2026-01-09 14:59:33,499 - INFO - Applying SMOTE with k_neighbors=3...
+2026-01-09 14:59:34,112 - INFO - SMOTE complete. Original shape: (160, 5), Resampled shape: (308, 5)
+2026-01-09 14:59:34,114 - INFO - Class distribution after SMOTE: isFraud
+0    154
+1    154
+Name: count, dtype: int64
+2026-01-09 14:59:34,114 - INFO - --- Training Logistic Regression ---
+2026-01-09 14:59:34,157 - INFO - Logistic Regression Results: {'accuracy': 0.85, 'precision': 0.14285714285714285, 'recall': 1.0, 'f1_score': 0.25, 'fpr': 0.15384615384615385, 'roc_auc': 0.8717948717948718, 'training_time': 0.027820825576782227}
+2026-01-09 14:59:34,627 - INFO - --- Training Isolation Forest ---
+2026-01-09 14:59:34,769 - INFO - Isolation Forest Results: {'accuracy': 0.9, 'precision': 0.0, 'recall': 0.0, 'f1_score': 0.0, 'fpr': 0.07692307692307693, 'roc_auc': 0.10256410256410253, 'training_time': 0.13272833824157715}
+2026-01-09 14:59:34,909 - INFO - --- Training XGBoost ---
+2026-01-09 14:59:34,962 - INFO - XGBoost Results: {'accuracy': 0.825, 'precision': 0.0, 'recall': 0.0, 'f1_score': 0.0, 'fpr': 0.15384615384615385, 'roc_auc': 0.6794871794871795, 'training_time': 0.0402216911315918}
+2026-01-09 14:59:35,608 - INFO - Pipeline Execution Complete. Summary saved.
+2026-01-09 14:59:35,608 - INFO - Pipeline finished successfully.

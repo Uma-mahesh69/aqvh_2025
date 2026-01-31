@@ -129,9 +129,19 @@ if menu == "Dashboard Overview":
         st.metric("Money Saved", "$1.2M", "Est. Value")
     with kpi4:
         precision = "N/A"
-        if metrics_df is not None and "XGBoost" in metrics_df.index:
-             prec_val = metrics_df.loc["XGBoost", "precision"]
-             precision = f"{prec_val:.1%}"
+        try:
+            if metrics_df is not None:
+                # Find XGBoost row (case-insensitive search)
+                idx = [i for i in metrics_df.index if "xgboost" in i.lower()]
+                if idx:
+                    # Metrics keys are in lowercase: 'precision'
+                    p = metrics_df.loc[idx[0]]
+                    prec_val = p.get("precision", 0)
+                    precision = f"{float(prec_val):.1%}"
+        except Exception as e:
+            print(f"Error loading precision: {e}")
+            pass
+            
         st.metric("Model Precision", precision, "Quantum Enhanced")
         
     # Charts
@@ -263,7 +273,7 @@ elif menu == "System Health":
     
     st.subheader("Training Logs (Recent)")
     try:
-        with open("fraud_detection_pipeline.log", "r") as f:
+        with open("fraud_pipeline.log", "r") as f:
             logs = f.readlines()
             st.text_area("Log Output", "".join(logs[-20:]), height=300)
     except:

@@ -45,7 +45,7 @@ def build_vqc(cfg: QuantumConfig) -> NeuralNetworkClassifier:
         cfg.num_features, 
         rotation_blocks="ry", 
         entanglement_blocks="cz", 
-        entanglement=cfg.entanglement,
+        entanglement="linear",  # NISQ-friendly SOTA default
         reps=cfg.reps_ansatz
     )
 

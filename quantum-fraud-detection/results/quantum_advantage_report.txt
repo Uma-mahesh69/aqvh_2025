@@ -6,73 +6,43 @@ CLASSICAL MODELS PERFORMANCE
 --------------------------------------------------------------------------------
 
 Logistic Regression:
-  Accuracy: 0.9750
-  Precision: 0.0000
-  Recall: 0.0000
-  F1_score: 0.0000
-  Roc_auc: 0.5000
-  Training Time: 0.01s
+  Accuracy: 0.6570
+  Precision: 0.0714
+  Recall: 0.7333
+  F1_score: 0.1302
+  Fpr: 0.3458
+  Roc_auc: 0.7576
+  Training_time: 0.0436
 
 Isolation Forest:
-  Accuracy: 0.9750
-  Precision: 0.0000
-  Recall: 0.0000
-  F1_score: 0.0000
-  Roc_auc: 0.5000
-  Training Time: 0.11s
+  Accuracy: 0.8923
+  Precision: 0.0709
+  Recall: 0.1714
+  F1_score: 0.1003
+  Fpr: 0.0815
+  Roc_auc: 0.3526
+  Training_time: 0.3150
 
 XGBoost:
-  Accuracy: 0.9750
-  Precision: 0.0000
-  Recall: 0.0000
-  F1_score: 0.0000
-  Roc_auc: 0.5000
-  Training Time: 0.04s
+  Accuracy: 0.6580
+  Precision: 0.0724
+  Recall: 0.7429
+  F1_score: 0.1320
+  Fpr: 0.3451
+  Roc_auc: 0.7757
+  Training_time: 0.0282
 
 
 QUANTUM MODELS PERFORMANCE
 --------------------------------------------------------------------------------
 
 Quantum VQC:
-  Accuracy: 0.0250
-  Precision: 0.0250
-  Recall: 1.0000
-  F1_score: 0.0488
-  Roc_auc: 0.0000
-  Training Time: 0.09s
-
-
-BEST MODELS BY METRIC
---------------------------------------------------------------------------------
-Accuracy: Logistic Regression (Classical) - 0.9750
-Precision: Quantum VQC (Quantum) - 0.0250
-Recall: Quantum VQC (Quantum) - 1.0000
-
-
-QUANTUM ADVANTAGE ANALYSIS
---------------------------------------------------------------------------------
-
-Accuracy:
-  Best Classical: 0.9750
-  Best Quantum: 0.0250
-  Improvement: -97.44%
-  -> Classical models perform better
-
-Precision:
-  Best Classical: 0.0000
-  Best Quantum: 0.0250
-  Improvement: +inf%
-  -> Quantum models show advantage!
-
-Recall:
-  Best Classical: 0.0000
-  Best Quantum: 1.0000
-  Improvement: +inf%
-  -> Quantum models show advantage!
-
-
-CONCLUSION
---------------------------------------------------------------------------------
+  Accuracy: 0.4860
+  Precision: 0.0373
+  Recall: 0.5524
+  F1_score: 0.0700
+  Fpr: 0.5164
+  Training_time: 98.9053
 
 
 ================================================================================

@@ -3,15 +3,14 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.feature_selection import mutual_info_classif, RFE
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.decomposition import PCA
-from sklearn.impute import SimpleImputer
-from collections import Counter
 import logging
+import joblib
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from dataclasses import dataclass
+from src.feature_llm import add_llm_features
 
 
 @dataclass
@@ -28,6 +27,10 @@ class PreprocessConfig:
     # LLM Config
     use_llm_features: bool = False
     llm_n_components: int = 8
+    
+    # Class Imbalance Handling
+    use_smote: bool = False
+    smote_k_neighbors: int = 5
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -199,123 +202,8 @@ def scale_numeric(df: pd.DataFrame, exclude: Optional[List[str]] = None) -> Tupl
     return df, scaler
 
 
-# --- Legacy Feature Selection (Kept for completeness) ---
-# (These functions: select_top_k_by_corr, select_by_mutual_info, etc., are unchanged)
-
-def select_top_k_by_corr(df: pd.DataFrame, target: str, k: int) -> List[str]:
-    """Select top k features by absolute correlation with target."""
-    if target not in df.columns:
-        raise KeyError(f"Target '{target}' not in dataframe")
-    corr = df.corr(numeric_only=True)[target].drop(labels=[target])
-    top = corr.abs().sort_values(ascending=False).head(k).index.tolist()
-    return top
-
-def select_by_mutual_info(df: pd.DataFrame, target: str, k: int, random_state: int = 42) -> List[str]:
-    """Select top k features by mutual information with target."""
-    if target not in df.columns:
-        raise KeyError(f"Target '{target}' not in dataframe")
-    X = df.drop(columns=[target])
-    y = df[target]
-    mi_scores = mutual_info_classif(X, y, random_state=random_state)
-    mi_scores = pd.Series(mi_scores, index=X.columns)
-    top_features = mi_scores.sort_values(ascending=False).head(k).index.tolist()
-    logging.info(f"Mutual Info - Top {k} features: {top_features}")
-    return top_features
-
-def select_by_rf_importance(df: pd.DataFrame, target: str, k: int, random_state: int = 42) -> List[str]:
-    """Select top k features by Random Forest feature importance."""
-    if target not in df.columns:
-        raise KeyError(f"Target '{target}' not in dataframe")
-    X = df.drop(columns=[target])
-    y = df[target]
-    rf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=random_state, n_jobs=-1)
-    rf.fit(X, y)
-    importances = pd.Series(rf.feature_importances_, index=X.columns)
-    top_features = importances.sort_values(ascending=False).head(k).index.tolist()
-    logging.info(f"RF Importance - Top {k} features: {top_features}")
-    return top_features
-
-def select_by_rfe(df: pd.DataFrame, target: str, k: int, random_state: int = 42) -> List[str]:
-    """Select top k features using Recursive Feature Elimination (RFE)."""
-    if target not in df.columns:
-        raise KeyError(f"Target '{target}' not in dataframe")
-    X = df.drop(columns=[target])
-    y = df[target]
-    estimator = LogisticRegression(max_iter=1000, random_state=random_state)
-    rfe = RFE(estimator=estimator, n_features_to_select=k, step=1)
-    rfe.fit(X, y)
-    top_features = X.columns[rfe.support_].tolist()
-    logging.info(f"RFE - Top {k} features: {top_features}")
-    return top_features
-
-def select_by_ensemble(df: pd.DataFrame, target: str, k: int, voting_threshold: int = 2, random_state: int = 42) -> Tuple[List[str], Dict[str, int]]:
-    """Select features using ensemble voting from multiple methods."""
-    logging.info(f"\n{'='*60}\nENSEMBLE FEATURE SELECTION\n{'='*60}")
-    methods = {
-        'correlation': select_top_k_by_corr(df, target, k),
-        'mutual_info': select_by_mutual_info(df, target, k, random_state),
-        'rf_importance': select_by_rf_importance(df, target, k, random_state),
-        'rfe': select_by_rfe(df, target, k, random_state)
-    }
-    all_features = [feat for features in methods.values() for feat in features]
-    vote_counts = Counter(all_features)
-    selected_features = [feat for feat, votes in vote_counts.items() if votes >= voting_threshold]
-    
-    if len(selected_features) < k:
-        remaining = k - len(selected_features)
-        candidates = [feat for feat, _ in vote_counts.most_common() if feat not in selected_features]
-        selected_features.extend(candidates[:remaining])
-    
-    if len(selected_features) > k:
-        selected_features = sorted(selected_features, key=lambda x: vote_counts[x], reverse=True)[:k]
-    
-    logging.info(f"\nVoting Results (Top {len(selected_features)}):")
-    for feat in selected_features:
-        logging.info(f"  - {feat}: {vote_counts[feat]} votes")
-    logging.info(f"{'='*60}\n")
-    return selected_features, dict(vote_counts)
-
-def select_by_l1(df: pd.DataFrame, target: str, k: int, random_state: int = 42) -> List[str]:
-    """Select top k features using L1 regularization (Lasso)."""
-    if target not in df.columns:
-        raise KeyError(f"Target '{target}' not in dataframe")
-    X = df.drop(columns=[target])
-    y = df[target]
-    
-    # Use Logistic Regression with L1 penalty
-    # C=0.1 means strong regularization -> sparse solution
-    model = LogisticRegression(penalty='l1', C=0.1, solver='liblinear', random_state=random_state)
-    model.fit(X, y)
-    
-    coefs = pd.Series(np.abs(model.coef_[0]), index=X.columns)
-    top_features = coefs.sort_values(ascending=False).head(k).index.tolist()
-    logging.info(f"L1 (Lasso) - Top {k} features: {top_features}")
-    return top_features
-
-def select_features_advanced(
-    df: pd.DataFrame, target: str, method: str = "ensemble", k: int = 8,
-    voting_threshold: int = 2, random_state: int = 42
-) -> Tuple[List[str], Optional[Dict[str, int]]]:
-    """Dispatcher for feature selection methods."""
-    if method == "pca":
-        # PCA is handled separately in preprocess_pipeline
-        return [], None
-    elif method == "correlation":
-        return select_top_k_by_corr(df, target, k), None
-    elif method == "mutual_info":
-        return select_by_mutual_info(df, target, k, random_state), None
-    elif method == "rf_importance":
-        return select_by_rf_importance(df, target, k, random_state), None
-    elif method == "rfe":
-        return select_by_rfe(df, target, k, random_state), None
-    elif method == "l1":
-        return select_by_l1(df, target, k, random_state), None
-    elif method == "ensemble":
-        return select_by_ensemble(df, target, k, voting_threshold, random_state)
-    else:
-        raise ValueError(f"Unknown feature selection method: {method}")
-
-# --- END Legacy Functions ---
+# --- Legacy Feature Selection Removed ---
+# Use 'pca' or implement selection logic in pipeline_manager if needed.
 
 
 def split_data(
@@ -465,22 +353,6 @@ def preprocess_pipeline(
         artifacts['pca_cols'] = pca_cols
         artifacts['pca_input_features'] = all_features
         
-    elif k > 0:
-        # --- Legacy Feature Selection ---
-        logging.warning(f"Using legacy feature selection method: '{cfg.feature_selection_method}'. 'pca' is recommended.")
-        selected_features, _ = select_features_advanced(
-            df=df,
-            target=cfg.target_col,
-            method=cfg.feature_selection_method,
-            k=k,
-            voting_threshold=cfg.ensemble_voting_threshold,
-            random_state=42
-        )
-        
-        logging.info(f"Selected {len(selected_features)} features using '{cfg.feature_selection_method}' method")
-        keep_cols = selected_features + exclude_cols
-        df_final = df[[col for col in keep_cols if col in df.columns]]
-        
     else:
         # No feature selection - use all features
         logging.info(f"No feature selection/reduction applied - using all {len(all_features)} features")
@@ -496,3 +368,38 @@ def preprocess_pipeline(
     artifacts['selected_features'] = selected_features
     
     return df_final, selected_features, artifacts
+
+
+def apply_smote(X: pd.DataFrame | np.ndarray, y: pd.Series | np.ndarray, k_neighbors: int = 5, random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Apply Synthetic Minority Over-sampling Technique (SMOTE).
+    
+    Args:
+        X: Feature matrix
+        y: Target vector
+        k_neighbors: Number of nearest neighbors for SMOTE
+        random_state: Random seed
+        
+    Returns:
+        X_resampled, y_resampled
+    """
+    try:
+        from imblearn.over_sampling import SMOTE
+        logging.info(f"Applying SMOTE with k_neighbors={k_neighbors}...")
+        smote = SMOTE(k_neighbors=k_neighbors, random_state=random_state)
+        X_res, y_res = smote.fit_resample(X, y)
+        logging.info(f"SMOTE complete. Original shape: {X.shape}, Resampled shape: {X_res.shape}")
+        
+        # Verify class balance
+        if hasattr(y_res, 'value_counts'):
+            counts = y_res.value_counts()
+        else:
+            counts = np.bincount(y_res)
+        logging.info(f"Class distribution after SMOTE: {counts}")
+        
+        return X_res, y_res
+        
+    except ImportError:
+        logging.warning("imbalanced-learn not installed. Skipping SMOTE.")
+        return X, y
+

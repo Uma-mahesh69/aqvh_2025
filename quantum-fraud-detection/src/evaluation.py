@@ -35,6 +35,10 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
         "f1_score": float(f1_score(y_true, y_pred_binary, zero_division=0, average='binary')),
     }
     
+    # Calculate False Positive Rate (FPR)
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
+    metrics["fpr"] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0
+    
     # AUC-ROC: Primary metric for fraud detection (NVIDIA insight)
     if y_proba is not None:
         try:
@@ -44,6 +48,28 @@ def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dic
             pass
     
     return metrics
+
+
+def save_pr_curve(estimator, X_test, y_test, out_path: str) -> None:
+    """Generate and save Precision-Recall curve plot.
+    
+    Args:
+        estimator: Trained classifier
+        X_test: Test features
+        y_test: Test labels
+        out_path: Output file path for the figure
+    """
+    try:
+        from sklearn.metrics import PrecisionRecallDisplay
+        PrecisionRecallDisplay.from_estimator(estimator, X_test, y_test)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        plt.gcf().tight_layout()
+        plt.title("Precision-Recall Curve")
+        plt.savefig(out_path)
+        plt.close()
+    except Exception as e:
+        print(f"Warning: Could not save PR Curve: {e}")
+        pass
 
 
 def save_confusion_matrix(y_true, y_pred, out_path: str) -> None:
