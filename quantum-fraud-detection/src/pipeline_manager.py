@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 from src.data_loader import load_csvs, merge_on_transaction_id
-from src.preprocessing import PreprocessConfig, preprocess_pipeline, split_data, apply_smote
+from src.preprocessing import PreprocessConfig, preprocess_pipeline, split_data, apply_smote, create_transform_pipeline
 from src.evaluation import compute_metrics, save_confusion_matrix, save_roc_curve, save_pr_curve, find_optimal_threshold
 from src.model_classical import (
     ClassicalConfig, train_logreg,
@@ -27,6 +27,7 @@ from src.model_quantum import (
     QuantumKernelConfig, train_quantum_kernel
 )
 from src.quantum_backend import BackendConfig
+from src.config_schema import validate_config
 
 # Configure logging
 logging.basicConfig(
@@ -49,12 +50,21 @@ class FraudDetectionPipeline:
         # Paths
         self.figures_dir = self.cfg["paths"]["figures_dir"]
         self.results_dir = self.cfg["paths"]["results_dir"]
+        self.artifacts_dir = os.path.join(self.results_dir, "artifacts")
+        self.models_dir = os.path.join(self.results_dir, "models")
         os.makedirs(self.figures_dir, exist_ok=True)
         os.makedirs(self.results_dir, exist_ok=True)
+        os.makedirs(self.artifacts_dir, exist_ok=True)
+        os.makedirs(self.models_dir, exist_ok=True)
 
     def _load_config(self):
         with open(self.config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+            raw_data = yaml.safe_load(f)
+        
+        # Validate schema and return as dict to preserve existing access patterns
+        validated_config = validate_config(raw_data)
+        logging.info("Configuration Schema Validated Successfully.")
+        return validated_config.model_dump()
 
     def run(self):
         """Execute the full pipeline."""
@@ -91,10 +101,10 @@ class FraudDetectionPipeline:
         return merge_on_transaction_id(df_txn, df_id)
 
     def preprocess_data(self, df):
-        logging.info("Preprocessing Data...")
+        logging.info("Preprocessing Data (Leakage-Free Flow)...")
         pp_cfg = PreprocessConfig(
             missing_threshold=self.cfg["preprocessing"]["missing_threshold"],
-            target_col=self.cfg["preprocessing"]["target_col"],
+            target_col=self.cfg["data"]["target_col"],
             feature_selection_method=self.cfg["preprocessing"].get("feature_selection_method", "pca"),
             top_k_features=self.cfg["preprocessing"].get("top_k_features", 8),
             use_llm_features=self.cfg["preprocessing"].get("use_llm_features", False),
@@ -102,26 +112,45 @@ class FraudDetectionPipeline:
             smote_k_neighbors=self.cfg["preprocessing"].get("smote_k_neighbors", 5)
         )
         
-        df_processed, selected_feats, artifacts = preprocess_pipeline(df, pp_cfg)
+        # 1. Feature Engineering & Cleaning (Row-wise only)
+        # Returns df with all features, unscaled.
+        df_processed, input_features, artifacts = preprocess_pipeline(df, pp_cfg)
+        
+        # 2. Split Data FIRST (Crucial for preventing leakage)
+        # We split the ID/Time columns too so we can drop them later
+        X_train_df, X_test_df, y_train, y_test = split_data(df_processed, pp_cfg.target_col)
+        
+        logging.info(f"Data Split: Train={len(X_train_df)}, Test={len(X_test_df)}")
+        
+        # 3. Create & Fit Transformation Pipeline (Scaler -> PCA)
+        # Fit ONLY on Training Data
+        transform_pipeline, output_feature_names = create_transform_pipeline(pp_cfg, len(input_features))
+        
+        logging.info("Fitting Transformation Pipeline on Training Data...")
+        # Select only the input feature columns
+        X_train_input = X_train_df[input_features]
+        transform_pipeline.fit(X_train_input)
+        
+        # 4. Transform Data
+        X_train_transformed = transform_pipeline.transform(X_train_input)
+        X_test_transformed = transform_pipeline.transform(X_test_df[input_features])
+        
+        # Store pipeline for inference
+        artifacts['pipeline'] = transform_pipeline
+        artifacts['input_features'] = input_features # Features expected by pipeline
+        artifacts['output_features'] = output_feature_names # Features produced by pipeline (e.g. PCA_0...)
+        
         self.artifacts.update(artifacts)
+        joblib.dump(artifacts, os.path.join(self.artifacts_dir, "preprocess_artifacts.joblib"))
         
-        # Save artifacts
-        joblib.dump(artifacts, os.path.join(self.cfg["paths"]["results_dir"], "artifacts", "preprocess_artifacts.joblib"))
-        
-        # Split
-        X_train, X_test, y_train, y_test = split_data(df_processed, pp_cfg.target_col)
-
-        # Drop metadata from features
-        cols_to_drop = ['TransactionID', 'TransactionDT', 'Transaction_datetime']
-        X_train = X_train.drop(columns=[c for c in cols_to_drop if c in X_train.columns], errors='ignore')
-        X_test = X_test.drop(columns=[c for c in cols_to_drop if c in X_test.columns], errors='ignore')
-        
-        # Apply SMOTE if requested (only on training data)
+        # 5. Apply SMOTE (Optional, Train data only)
         if pp_cfg.use_smote:
             logging.info("Applying SMOTE to training data...")
-            X_train, y_train = apply_smote(X_train, y_train, k_neighbors=pp_cfg.smote_k_neighbors)
+            X_train_final, y_train_final = apply_smote(X_train_transformed, y_train, k_neighbors=pp_cfg.smote_k_neighbors)
+        else:
+            X_train_final, y_train_final = X_train_transformed, y_train
             
-        return X_train, X_test, y_train, y_test
+        return X_train_final, X_test_transformed, y_train_final, y_test
 
     def train_evaluate(self, name, train_func, config, X_train, y_train, X_test, y_test):
         logging.info(f"--- Training {name} ---")
@@ -169,10 +198,10 @@ class FraudDetectionPipeline:
             
             # Save Model
             safe_name = name.lower().replace(" ", "_")
-            joblib.dump(model, os.path.join(self.results_dir, "models", f"{safe_name}.joblib"))
+            joblib.dump(model, os.path.join(self.models_dir, f"{safe_name}.joblib"))
             
             # Save Threshold
-            thresh_path = os.path.join(self.results_dir, "models", f"{safe_name}_threshold.json")
+            thresh_path = os.path.join(self.models_dir, f"{safe_name}_threshold.json")
             with open(thresh_path, "w") as f:
                 json.dump({"threshold": optimal_thresh, "model": name}, f)
             
@@ -254,13 +283,23 @@ class FraudDetectionPipeline:
             backend_type=q_cfg.get("backend_type", "simulator"),
             ibm_token=q_cfg.get("ibm_token"),
             ibm_backend_name=q_cfg.get("ibm_backend_name"),
-            shots=c.get("shots", 1024)
+            shots=c.get("shots", 1024),
+            optimization_level=q_cfg.get("optimization_level", 3),
+            resilience_level=q_cfg.get("resilience_level", 1)
         )
+        
+        # Use actual output features if available (post-pipeline), else config default
+        num_feats = len(self.artifacts.get("output_features", [])) 
+        if num_feats == 0:
+            num_feats = self.cfg["preprocessing"].get("top_k_features", 8)
+            
         return QuantumConfig(
-            num_features=self.cfg["preprocessing"]["top_k_features"],
-            reps_feature_map=c["reps_feature_map"],
-            reps_ansatz=c["reps_ansatz"],
-            optimizer_maxiter=c["optimizer_maxiter"],
+            num_features=num_feats,
+            reps_feature_map=c.get("reps_feature_map", 2),
+            reps_ansatz=c.get("reps_ansatz", 2),
+            optimizer_maxiter=c.get("optimizer_maxiter", 100),
+            shots=c.get("shots", 1024),
+            optimizer=c.get("optimizer", "cobyla"),
             backend_config=backend_cfg
         )
 
@@ -271,9 +310,21 @@ class FraudDetectionPipeline:
             backend_type=q_cfg.get("backend_type", "simulator"),
             ibm_token=q_cfg.get("ibm_token"),
             ibm_backend_name=q_cfg.get("ibm_backend_name"),
-            shots=c.get("shots", 1024)
+            shots=c.get("shots", 1024),
+            optimization_level=q_cfg.get("optimization_level", 3),
+            resilience_level=q_cfg.get("resilience_level", 1)
         )
+        
+        # Use actual output features if available
+        num_feats = len(self.artifacts.get("output_features", [])) 
+        if num_feats == 0:
+            num_feats = self.cfg["preprocessing"].get("top_k_features", 8)
+
         return QuantumKernelConfig(
-            num_features=self.cfg["preprocessing"]["top_k_features"], 
+            num_features=num_feats,
+            reps_feature_map=c.get("reps_feature_map", 2),
+            shots=c.get("shots", 1024),
+            C=c.get("C", 1.0),
+            gamma=c.get("gamma", "scale"),
             backend_config=backend_cfg
         )

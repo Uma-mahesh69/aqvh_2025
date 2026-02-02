@@ -13,7 +13,6 @@ preprocessing:
   smote_k_neighbors: 3
   test_size: 0.2
   random_state: 42
-  target_col: "isFraud" # Redundant but safe
 
 models_to_run:
   logistic_regression: true
@@ -57,6 +56,12 @@ quantum_backend:
   optimization_level: 3
   resilience_level: 1
   ibm_backend_name: "ibmq_qasm_simulator" # Fallback if needed
+
+quantum_kernel:
+  reps_feature_map: 1
+  shots: 1024
+  C: 1.0
+  gamma: "scale"
 
 paths:
   results_dir: "results"

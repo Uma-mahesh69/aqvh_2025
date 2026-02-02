@@ -2,12 +2,11 @@ data:
   transaction_csv: "data/train_transaction.csv"
   identity_csv: "data/train_identity.csv"
   nrows: 5000  # Smaller subset for real quantum hardware (null for all rows)
+  target_col: "isFraud"
 
 preprocessing:
   missing_threshold: 50.0
-  target_col: "isFraud"
-  id_cols: ["TransactionID"]
-  top_k_corr_features: 4  # Reduced for real quantum hardware
+  top_k_features: 4  # Reduced for real quantum hardware
   test_size: 0.2
   random_state: 42
   stratify: true
@@ -16,7 +15,7 @@ preprocessing:
 logistic_regression:
   penalty: "l2"
   C: 1.0
-  max_iter: 1000
+  max_iter: 500
   class_weight: null
   use_random_oversampler: true
 
@@ -51,7 +50,7 @@ quantum_kernel:
 quantum_backend:
   backend_type: "ibm_quantum"  # Use real IBM Quantum hardware
   ibm_token: null  # Set via environment variable IBM_QUANTUM_TOKEN or paste here
-  ibm_backend_name: "ibm_brisbane"  # Options: ibm_brisbane, ibm_kyoto, ibm_osaka, ibmq_qasm_simulator
+  ibm_backend_name: "ibm_torino"  # Options: ibm_brisbane, ibm_kyoto, ibm_osaka, ibmq_qasm_simulator
   shots: 1024
   optimization_level: 3  # Maximum optimization for hardware
 

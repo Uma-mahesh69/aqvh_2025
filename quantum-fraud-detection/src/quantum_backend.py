@@ -1,25 +1,30 @@
-"""Quantum backend management for simulator and IBM Quantum hardware."""
+"""Quantum backend management for Qiskit 1.x and IBM Quantum Hardware."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Optional, Literal, Union, Any
 import logging
+import os
 
-from qiskit.primitives import Estimator, Sampler
-from qiskit_aer.primitives import Estimator as AerEstimator, Sampler as AerSampler
+# Qiskit 1.x Imports
+from qiskit import QuantumCircuit, transpile
+from qiskit.primitives import StatevectorSampler, Estimator, Sampler
+from qiskit.circuit import ParameterVector
 
+# Optional: Aer
 try:
-    from qiskit_ibm_runtime import QiskitRuntimeService, Estimator as IBMEstimator, SamplerV2 as IBMSampler
+    from qiskit_aer import AerSimulator
+    from qiskit_aer.primitives import Estimator as AerEstimator, Sampler as AerSampler
+    AER_AVAILABLE = True
+except ImportError:
+    AER_AVAILABLE = False
+
+# Optional: IBM Quantum
+try:
+    from qiskit_ibm_runtime import QiskitRuntimeService, EstimatorV2 as IBMEstimator, SamplerV2 as IBMSampler
+    from qiskit_ibm_runtime.fake_provider import FakeManilaV2
     IBM_AVAILABLE = True
 except ImportError:
     IBM_AVAILABLE = False
-    logging.warning("qiskit-ibm-runtime not installed. IBM Quantum hardware support disabled.")
-
-try:
-    from qiskit.primitives import StatevectorSampler
-    V2_AVAILABLE = True
-except ImportError:
-    V2_AVAILABLE = False
-    logging.warning("qiskit 1.0+ V2 primitives not found. Some functionality might fail.")
 
 
 @dataclass
@@ -27,245 +32,149 @@ class BackendConfig:
     """Configuration for quantum backend selection."""
     backend_type: Literal["simulator", "aer", "ibm_quantum"] = "simulator"
     ibm_token: Optional[str] = None
-    ibm_backend_name: Optional[str] = None  # e.g., "ibmq_qasm_simulator", "ibm_brisbane"
+    ibm_backend_name: Optional[str] = None
     shots: Optional[int] = None
-    optimization_level: int = 1
-    resilience_level: int = 1  # 0=No mitigation, 1=TREM
+    optimization_level: int = 3
+    resilience_level: int = 1
+
+
+def get_service(token: Optional[str] = None) -> Any:
+    """Helper to get QiskitRuntimeService."""
+    if not IBM_AVAILABLE:
+        raise ImportError("qiskit-ibm-runtime is not installed.")
+    
+    # Try grabbing from env if not provided
+    if not token:
+        token = os.environ.get("IBM_QUANTUM_TOKEN")
+    
+    try:
+        if token:
+            return QiskitRuntimeService(channel="ibm_quantum", token=token)
+        return QiskitRuntimeService()
+    except Exception as e:
+        # If simple init fails, try one more time without channel (older accounts) or raise
+        logging.warning(f"Standard Service init failed: {e}. Trying fallback.")
+        if token:
+            return QiskitRuntimeService(token=token)
+        raise ValueError("Could not initialize QiskitRuntimeService. Check your token.")
+
+
+def get_backend_handle(cfg: BackendConfig):
+    """Refactored logic to get the actual backend object."""
+    if cfg.backend_type == "simulator":
+        return None # No backend object needed for local primitives usually
+        
+    elif cfg.backend_type == "aer":
+        if not AER_AVAILABLE:
+            raise ValueError("qiskit-aer is not installed.")
+        return AerSimulator()
+        
+    elif cfg.backend_type == "ibm_quantum":
+        service = get_service(cfg.ibm_token)
+        backend_name = cfg.ibm_backend_name or "ibmq_qasm_simulator"
+        try:
+            return service.backend(backend_name)
+        except Exception:
+            logging.info(f"Backend {backend_name} not found, listing available...")
+            available = [b.name for b in service.backends()]
+            raise ValueError(f"Backend {backend_name} not found. Available: {available}")
+    
+    return None
 
 
 def get_estimator(cfg: BackendConfig):
-    """Get appropriate Estimator based on backend configuration.
+    """Get Qiskit Estimator (V2 preferred for IBM, V1/Standard for local)."""
+    options = {}
+    if cfg.shots:
+        options["default_shots"] = cfg.shots # V2 naming
     
-    Args:
-        cfg: Backend configuration
-        
-    Returns:
-        Estimator instance (local simulator, Aer, or IBM)
-        
-    Raises:
-        ValueError: If IBM backend requested but not available
-    """
     if cfg.backend_type == "simulator":
-        # Use basic local simulator
-        options = {"shots": cfg.shots} if cfg.shots else None
-        return Estimator(options=options)
-    
+        # Local standard Estimator (Exact)
+        # Note: Standard Estimator in 1.0 doesn't take shots for exact expectation, 
+        # but if we want shot noise, we might need a different approach or Aer.
+        # For 'simulator' we assume exact statevector usually.
+        return Estimator() 
+
     elif cfg.backend_type == "aer":
-        # Use Aer simulator (more realistic noise models)
+        if not AER_AVAILABLE:
+             logging.warning("Aer not found, falling back to standard estimator.")
+             return Estimator()
+        
+        # Aer Estimator V1 style usually
         run_options = {"shots": cfg.shots} if cfg.shots else None
         return AerEstimator(run_options=run_options)
-    
+
     elif cfg.backend_type == "ibm_quantum":
         if not IBM_AVAILABLE:
-            raise ValueError("qiskit-ibm-runtime not installed. Install with: pip install qiskit-ibm-runtime")
+            raise ValueError("IBM Runtime not installed.")
         
-        # Auto-load from environment if not provided
-        if not cfg.ibm_token:
-            import os
-            cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
-
-        if not cfg.ibm_token:
-            raise ValueError(
-                "CRITICAL: IBM Quantum Token is MISSING for 'ibm_quantum' backend.\n"
-                "Please set it in 'configs/config.yaml' (ibm_token) or via environment variable 'IBM_QUANTUM_TOKEN'.\n"
-                "Get your token from: https://quantum.ibm.com/"
-            )
-        
-        # Initialize IBM Quantum service
-        # 'ibm_quantum' channel might be deprecated or renamed in some versions.
-        # Letting it infer from account or using default.
-        try:
-             service = QiskitRuntimeService(channel="ibm_quantum", token=cfg.ibm_token)
-        except ValueError:
-             # Fallback for newer/different versions complaining about channel name
-             logging.warning("Retrying with channel='ibm_quantum' failed (or similar). Trying without channel arg.")
-             service = QiskitRuntimeService(token=cfg.ibm_token)
-        
-        # Get backend
-        backend_name = cfg.ibm_backend_name or "ibmq_qasm_simulator"
-        backend = service.backend(backend_name)
-        
-        logging.info(f"Using IBM Quantum backend: {backend_name}")
-        
-        # Create IBM Estimator
-        options = {
-            "optimization_level": cfg.optimization_level,
-            "resilience_level": cfg.resilience_level
-        }
+        backend = get_backend_handle(cfg)
+        # EstimatorV2
+        est = IBMEstimator(mode=backend)
         if cfg.shots:
-            options["shots"] = cfg.shots
+            est.options.default_shots = cfg.shots
         
-        # Create IBM Estimator
-        # EstimatorV2 uses 'mode' instead of 'backend' and 'default_shots' instead of 'shots'
-        
-        try:
-             # Try V2 style options construction
-             # Use dict with V2 keys
-             v2_options = {}
-             if cfg.shots:
-                 v2_options["default_shots"] = cfg.shots
-             
-             # resilience/optimization levels might not map directly in V2 or need specific structure
-             # For safety/compatibility, we only set shots which is critical
-             
-             return IBMEstimator(mode=backend, options=v2_options)
-        except TypeError:
-             # Fallback to V1 style if older version
-             return IBMEstimator(backend=backend, options=options)
-    
+        est.options.resilience_level = cfg.resilience_level
+        return est
+
     else:
-        raise ValueError(f"Unknown backend type: {cfg.backend_type}")
+        raise ValueError(f"Unknown backend: {cfg.backend_type}")
 
 
 def get_sampler(cfg: BackendConfig):
-    """Get appropriate Sampler based on backend configuration.
-    
-    Args:
-        cfg: Backend configuration
-        
-    Returns:
-        Sampler instance (V2 if possible)
-        
-    Raises:
-        ValueError: If IBM backend requested but not available
-    """
+    """Get Qiskit Sampler."""
     if cfg.backend_type == "simulator":
-        if V2_AVAILABLE:
-            # Use V2 Local Simulator
-            # StatevectorSampler(default_shots=...)
-            default_shots = cfg.shots if cfg.shots else None
-            try:
-                sampler = StatevectorSampler(default_shots=default_shots)
-            except TypeError:
-                # In case older version doesn't accept it, try without
-                logging.warning("StatevectorSampler does not accept default_shots in init. Using defaults.")
-                sampler = StatevectorSampler()
-            return sampler
-        else:
-            # Fallback to V1 (might fail with ComputeUncompute)
-            options = {"shots": cfg.shots} if cfg.shots else None
-            return Sampler(options=options)
-    
-    elif cfg.backend_type == "aer":
-        # Aer not fully V2 compliant in all versions, trying basic V1 for now unless requested
-        # Or check if AerSamplerV2 exists
+        # Qiskit 1.0 StatevectorSampler
         try:
-             from qiskit_aer.primitives import SamplerV2
-             sampler = SamplerV2()
-             if cfg.shots:
-                 sampler.default_shots = cfg.shots
-             return sampler
-        except ImportError:
-             # Use Aer simulator V1
-             run_options = {"shots": cfg.shots} if cfg.shots else None
-             return AerSampler(run_options=run_options)
-    
-    elif cfg.backend_type == "ibm_quantum":
-        if not IBM_AVAILABLE:
-            raise ValueError("qiskit-ibm-runtime not installed. Install with: pip install qiskit-ibm-runtime")
-        
-        # Auto-load from environment if not provided
-        if not cfg.ibm_token:
-            import os
-            cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
+            return StatevectorSampler(default_shots=cfg.shots)
+        except TypeError:
+             # Fallback if specific version mismatch
+            s = StatevectorSampler()
+            if cfg.shots: 
+                # Some versions don't have default_shots in init, but in run? 
+                # Actually StatevectorSampler (1.0) has default_shots in init.
+                pass 
+            return s
 
-        if not cfg.ibm_token:
-            raise ValueError(
-                "CRITICAL: IBM Quantum Token is MISSING for 'ibm_quantum' backend.\n"
-                "Please set it in 'configs/config.yaml' (ibm_token) or via environment variable 'IBM_QUANTUM_TOKEN'.\n"
-                "Get your token from: https://quantum.ibm.com/"
-            )
-        
-        # Initialize IBM Quantum service
-        try:
-            service = QiskitRuntimeService(channel="ibm_quantum", token=cfg.ibm_token)
-        except ValueError:
-            service = QiskitRuntimeService(token=cfg.ibm_token)
-        
-        # Get backend
-        backend_name = cfg.ibm_backend_name or "ibmq_qasm_simulator"
-        backend = service.backend(backend_name)
-        
-        logging.info(f"Using IBM Quantum backend (SamplerV2): {backend_name}")
-        
-        # Create IBM SamplerV2
-        # mode argument is indeed the backend in recent versions
+    elif cfg.backend_type == "aer":
+         if not AER_AVAILABLE:
+             return StatevectorSampler()
+         
+         run_options = {"shots": cfg.shots} if cfg.shots else None
+         return AerSampler(run_options=run_options)
+
+    elif cfg.backend_type == "ibm_quantum":
+        backend = get_backend_handle(cfg)
         sampler = IBMSampler(mode=backend)
         if cfg.shots:
             sampler.options.default_shots = cfg.shots
-            
         return sampler
+        
+    return StatevectorSampler()
+
+
+def transpile_circuit(circuit: QuantumCircuit, cfg: BackendConfig, scrub_parameters: bool = False) -> QuantumCircuit:
+    """Transpile and optionally scrub parameters."""
     
-    else:
-        raise ValueError(f"Unknown backend type: {cfg.backend_type}")
-
-
-def transpile_circuit(circuit, cfg: BackendConfig, scrub_parameters: bool = False):
-    """Transpile circuit for the target backend, ensuring ISA compliance.
+    # 1. Transpile
+    if cfg.backend_type == "ibm_quantum":
+        try:
+             backend = get_backend_handle(cfg)
+             logging.info(f"Transpiling for {backend.name}...")
+             circuit = transpile(circuit, backend=backend, optimization_level=cfg.optimization_level)
+        except Exception as e:
+             logging.warning(f"Transpilation failed: {e}")
     
-    Args:
-        circuit: Qiskit QuantumCircuit
-        cfg: Backend configuration
-        scrub_parameters: If True, replaces parameters with fresh ParameterVector (fixes QPY name conflicts)
-        
-    Returns:
-        Transpiled QuantumCircuit
-    """
-    if cfg.backend_type != "ibm_quantum":
-        return circuit
-
-    if not IBM_AVAILABLE:
-        logging.warning("Cannot transpile for IBM Backend: qiskit-ibm-runtime missing.")
-        return circuit
-
-    try:
-        # Initialize Service
+    # 2. Scrub Parameters (Fix for QPY/FeatureMap issues)
+    if scrub_parameters:
         try:
-             # Try simple init first (env var or default)
-             if not cfg.ibm_token:
-                 import os
-                 cfg.ibm_token = os.environ.get("IBM_QUANTUM_TOKEN")
-
-             if cfg.ibm_token:
-                 try:
-                    service = QiskitRuntimeService(channel="ibm_quantum", token=cfg.ibm_token)
-                 except ValueError:
-                    service = QiskitRuntimeService(token=cfg.ibm_token)
-             else:
-                 service = QiskitRuntimeService()
-        except Exception:
-             # Fallback
-             service = QiskitRuntimeService()
-
-        backend_name = cfg.ibm_backend_name or "ibmq_qasm_simulator"
-        backend = service.backend(backend_name)
-        
-        logging.info(f"Transpiling circuit for backend: {backend_name}")
-        
-        # Import transpile here to avoid circular dependencies if any
-        from qiskit import transpile
-        
-        # Optimization Level 3 required for some gates (like sxdg) on new backends
-        try:
-            transpiled_qc = transpile(circuit, target=backend.target, optimization_level=3)
-        except Exception:
-             transpiled_qc = transpile(circuit, backend=backend, optimization_level=3)
-             
-        if scrub_parameters:
-            from qiskit.circuit import ParameterVector
-            logging.info("Scrubbing parameters to prevent StateFidelity name conflicts.")
-            # Create fresh parameters matching the count
-            safe_params = ParameterVector("safe_x", transpiled_qc.num_parameters)
-            old_params = transpiled_qc.parameters
+            logging.info("Scrubbing parameters...")
+            new_params = ParameterVector("p", circuit.num_parameters)
+            current_params = circuit.parameters
+            if len(new_params) == len(current_params):
+                mapping = {old: new for old, new in zip(current_params, new_params)}
+                circuit.assign_parameters(mapping, inplace=True)
+        except Exception as e:
+            logging.warning(f"Scrubbing failed: {e}")
             
-            if len(safe_params) == len(old_params):
-                param_map = {old: new for old, new in zip(old_params, safe_params)}
-                transpiled_qc.assign_parameters(param_map, inplace=True)
-            else:
-                logging.warning("Parameter count mismatch during scrubbing. Skipping.")
-                
-        return transpiled_qc
-
-    except Exception as e:
-        logging.warning(f"Transpilation failed: {e}. Returning original circuit.")
-        return circuit
+    return circuit

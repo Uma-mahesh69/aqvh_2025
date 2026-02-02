@@ -126,57 +126,40 @@ class FraudInference:
         # if background_df doesn't cover all categories. Accepted risk for Hackathon demo.
         df_eng = label_encode_inplace(df_eng)
 
-        # --- 4. Scaling & PCA ---
-        # Note: simplistic reproduction of pipeline steps
-        # For a truly robust system, we should have saved the LabelEncoders too.
-        # Here we do "best effort" for hackathon.
+        # --- 4. Transformation (Pipeline) ---
+        # The pipeline handles Scaling and PCA
         
-        # Select numeric columns saved in scaler
-        scaler = self.artifacts['scaler']
-        # The scaler expects specific columns.
-        # We need to ensure df_eng has the columns expected by the scaler.
-        # This is tricky because `engineer_features` creates dynamic columns.
-        # WE RELY ON THE PCA/SELECTION STEP TO ALIGN COLUMNS.
-        
-        # --- 3. Selection / PCA ---
-        # If PCA was used, transform
-        if 'pca' in self.artifacts:
-            pca = self.artifacts['pca']
-            input_feats = self.artifacts['pca_input_features']
+        if 'pipeline' in self.artifacts:
+            pipeline = self.artifacts['pipeline']
+            input_feats = self.artifacts['input_features']
             
-            # Ensure all input features exist (fill 0 if missing in this single row context)
+            # Ensure all input features exist (fill 0 if missing in this single row context due to label encoding differences)
             for f in input_feats:
                 if f not in df_eng.columns:
                     df_eng[f] = 0
             
-            # Extract just the target row for transformation calculation
-            # But wait, scaling needs to happen first.
+            # Extract just the target row
+            # We want a DataFrame with the exact columns expected by the pipeline
+            X_input = df_eng.iloc[[target_idx]][input_feats]
             
-            # Prepare numeric vector for scaling
-            # Handle NaNs (SimpleImpute logic from training - crude approx here)
-            df_eng = df_eng.fillna(0) # simplified
+            # Validating input integrity (fill NaNs one last time as pipeline expects numeric)
+            X_input = X_input.fillna(0)
             
-            # Filter to relevant feats
-            X_numeric = df_eng.loc[target_idx, input_feats].values.reshape(1, -1)
+            # Transform using the fitted pipeline
+            # This applies StandardScaler and PCA (if configured) exactly as in training
+            X_transformed = pipeline.transform(X_input)
             
-            # Scale
-            X_scaled = scaler.transform(X_numeric)
-            
-            # PCA
-            X_pca = pca.transform(X_scaled)
-            
-            # Create DataFrame
-            pca_cols = self.artifacts['pca_cols']
-            df_final = pd.DataFrame(X_pca, columns=pca_cols)
+            # Create DataFrame with proper column names
+            output_feats = self.artifacts.get('output_features', [f"Feature_{i}" for i in range(X_transformed.shape[1])])
+            df_final = pd.DataFrame(X_transformed, columns=output_feats)
             
         else:
-            # Direct feature selection
-            selected_feats = self.artifacts['selected_features']
-             # Ensure all input features exist
+            # Legacy fallback (should not be hit in new flow)
+            logging.warning("Pipeline not found in artifacts. Using legacy column selection.")
+            selected_feats = self.artifacts.get('selected_features', [])
             for f in selected_feats:
                 if f not in df_eng.columns:
                     df_eng[f] = 0
-                    
             df_final = df_eng.iloc[[target_idx]][selected_feats].reset_index(drop=True)
             
         return df_final

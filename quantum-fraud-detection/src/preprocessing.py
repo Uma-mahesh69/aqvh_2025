@@ -8,8 +8,8 @@ import joblib
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from dataclasses import dataclass
 from src.feature_llm import add_llm_features
 
 
@@ -278,8 +278,8 @@ def preprocess_pipeline(
     1. Feature Engineering
     2. Cleaning (Drop high missing, Impute)
     3. Encoding (Label Encode)
-    4. Scaling (StandardScaler)
-    5. Dimensionality Reduction (PCA) or legacy Feature Selection
+    4. Scaling (Legacy call removed to fix leakage)
+    5. Dimensionality Reduction (Moved to Pipeline)
     """
     # --- 1. Feature Engineering ---
     df = engineer_features(df_merged)
@@ -313,61 +313,60 @@ def preprocess_pipeline(
     # --- 3. Encoding ---
     df = label_encode_inplace(df)
 
-    # --- 4. Scaling ---
-    # Preserve TransactionDT for time-based validation (don't scale it)
+    # --- 4. Prepare for Pipeline (Stop here) ---
+    # LEAKAGE FIX: We do NOT scale or PCA here.
+    # We return the dataframe ready for splitting, and a helper to create the pipeline later.
+    
+    # Identify excludes
     exclude_cols = [cfg.target_col] + (cfg.id_cols or [])
     if 'TransactionDT' in df.columns and 'TransactionDT' not in exclude_cols:
         exclude_cols.append('TransactionDT')
-    
-    df, scaler = scale_numeric(df, exclude=exclude_cols)
-    
-    # Define features to be used for PCA or selection (exclude TransactionDT from features)
+        
     all_features = [c for c in df.columns if c not in exclude_cols]
     
-    # Define features to be used for PCA or selection (exclude TransactionDT from features)
-    all_features = [c for c in df.columns if c not in exclude_cols]
-    
-    # Collect artifacts for inference (initialize)
-    artifacts = {
-        'scaler': scaler,
-        'exclude_cols': exclude_cols
-    }
-    
-    # --- 5. Dimensionality Reduction (PCA) or Feature Selection ---
-    k = cfg.top_k_features if cfg.top_k_features is not None else len(all_features)
-    
-    if cfg.feature_selection_method == "pca":
-        logging.info(f"Applying PCA to reduce {len(all_features)} features to {k} components.")
-        pca = PCA(n_components=k, random_state=42)
-        
-        # Create a dataframe for the PCA components
-        X_pca = pca.fit_transform(df[all_features])
-        pca_cols = [f"PCA_{i}" for i in range(k)]
-        df_pca = pd.DataFrame(X_pca, columns=pca_cols, index=df.index)
-        
-        # Combine PCA components with target/id columns
-        df_final = pd.concat([df[exclude_cols], df_pca], axis=1)
-        selected_features = pca_cols
-        
-        artifacts['pca'] = pca
-        artifacts['pca_cols'] = pca_cols
-        artifacts['pca_input_features'] = all_features
-        
-    else:
-        # No feature selection - use all features
-        logging.info(f"No feature selection/reduction applied - using all {len(all_features)} features")
-        selected_features = all_features
-        df_final = df
-
-    # Ensure target column is int
-    df_final[cfg.target_col] = df_final[cfg.target_col].astype(int)
-    
+    # Store LLM extractor if present
+    artifacts = {}
     if 'llm_extractor' in locals():
         artifacts['llm_extractor'] = llm_extractor
         
-    artifacts['selected_features'] = selected_features
+    artifacts['exclude_cols'] = exclude_cols
+    artifacts['input_features'] = all_features
     
-    return df_final, selected_features, artifacts
+    # Return processed DF (unscaled) and metadata/tools to build pipeline
+    logging.info(f"Preprocessing Phase 1 Complete. Ready for Split. Shape: {df.shape}")
+    
+    return df, all_features, artifacts
+
+
+def create_transform_pipeline(cfg: PreprocessConfig, input_dim: int) -> Tuple[Pipeline, List[str]]:
+    """
+    Creates a sklearn Pipeline for Scaling and PCA.
+    Fit this ONLY on X_train.
+    
+    Args:
+        cfg: PreprocessConfig
+        input_dim: Number of input features
+        
+    Returns:
+        pipeline, output_feature_names
+    """
+    from sklearn.pipeline import Pipeline
+    
+    steps = [('scaler', StandardScaler())]
+    
+    # Feature Selection / Reduction
+    pca_cols = []
+    if cfg.feature_selection_method == "pca":
+        k = cfg.top_k_features if cfg.top_k_features is not None else min(8, input_dim)
+        logging.info(f"Configuring PCA with n_components={k}")
+        steps.append(('pca', PCA(n_components=k, random_state=42)))
+        pca_cols = [f"PCA_{i}" for i in range(k)]
+    else:
+        # Pass through (no op)
+        pass
+        
+    pipeline = Pipeline(steps)
+    return pipeline, pca_cols
 
 
 def apply_smote(X: pd.DataFrame | np.ndarray, y: pd.Series | np.ndarray, k_neighbors: int = 5, random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
@@ -402,4 +401,3 @@ def apply_smote(X: pd.DataFrame | np.ndarray, y: pd.Series | np.ndarray, k_neigh
     except ImportError:
         logging.warning("imbalanced-learn not installed. Skipping SMOTE.")
         return X, y
-

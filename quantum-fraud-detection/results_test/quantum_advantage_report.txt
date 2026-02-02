@@ -1,0 +1,52 @@
+================================================================================
+QUANTUM vs CLASSICAL FRAUD DETECTION - COMPREHENSIVE REPORT
+================================================================================
+
+CLASSICAL MODELS PERFORMANCE
+--------------------------------------------------------------------------------
+
+Logistic Regression:
+  Accuracy: 0.9750
+  Precision: 0.5000
+  Recall: 1.0000
+  F1_score: 0.6667
+  Fpr: 0.0256
+  Roc_auc: 0.9744
+  Training_time: 0.0304
+  Optimal_threshold: 0.8151
+
+Isolation Forest:
+  Accuracy: 0.1750
+  Precision: 0.0294
+  Recall: 1.0000
+  F1_score: 0.0571
+  Fpr: 0.8462
+  Roc_auc: 0.1538
+  Training_time: 0.3332
+  Optimal_threshold: 0.5094
+
+
+QUANTUM MODELS PERFORMANCE
+--------------------------------------------------------------------------------
+
+Quantum VQC:
+  Accuracy: 0.5250
+  Precision: 0.0500
+  Recall: 1.0000
+  F1_score: 0.0952
+  Fpr: 0.4872
+  Training_time: 12.0484
+  Optimal_threshold: 0.5000
+
+Quantum Kernel:
+  Accuracy: 0.3750
+  Precision: 0.0385
+  Recall: 1.0000
+  F1_score: 0.0741
+  Fpr: 0.6410
+  Roc_auc: 0.3590
+  Training_time: 31.4611
+  Optimal_threshold: 0.0170
+
+
+================================================================================

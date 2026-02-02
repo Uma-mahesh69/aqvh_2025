@@ -23,6 +23,7 @@ data:
 # Data Preprocessing
 preprocessing:
   # Features to select based on importance (Classical)
+  missing_threshold: 50.0
   top_k_features: 3  
   
   # LLM Embedding dimensions (Quantum)
@@ -79,7 +80,7 @@ quantum_kernel:
 # Quantum Backend Configuration
 quantum_backend:
   # Options: "simulator", "aer", "ibm_quantum"
-  backend_type: "ibm_quantum"
+  backend_type: "simulator"
   
   # IBM Quantum Token (Leave empty to use IBM_QUANTUM_TOKEN env var)
   ibm_token: null # Set via env var IBM_QUANTUM_TOKEN
