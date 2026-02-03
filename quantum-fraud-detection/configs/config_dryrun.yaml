@@ -1,0 +1,80 @@
+
+# ==============================================================================
+# QUANTUM FRAUD DETECTION CONFIGURATION (DRY RUN)
+# ==============================================================================
+
+# Data Configuration
+data:
+  transaction_csv: "data/train_transaction.csv"
+  identity_csv: "data/train_identity.csv"
+  nrows: 200  # Fast dry run
+  target_col: "isFraud" 
+
+# Data Preprocessing
+preprocessing:
+  missing_threshold: 50.0
+  top_k_features: 3  
+  feature_selection_method: "pca"
+  llm_n_components: 3
+  use_llm_features: false # Disable LLM for speed in dry run (optional, but let's test without first)
+  test_size: 0.2
+  random_state: 42
+  use_smote: false
+
+# Models
+models_to_run:
+  logistic_regression: true
+  xgboost: true
+  quantum_vqc: true
+  quantum_kernel: false
+
+# Hyperparameters (Reduced for Speed)
+logistic_regression:
+  max_iter: 100
+  C: 1.0
+  penalty: "l2"
+  class_weight: "balanced"
+  use_random_oversampler: true
+
+isolation_forest:
+  n_estimators: 50
+  contamination: 0.1
+  max_samples: "auto"
+  random_state: 42
+
+xgboost:
+  n_estimators: 10
+  learning_rate: 0.1
+  max_depth: 3
+  scale_pos_weight: 1.0
+  subsample: 1.0
+  colsample_bytree: 1.0
+  random_state: 42
+  use_gpu: false
+
+quantum_vqc:
+  reps_feature_map: 1
+  reps_ansatz: 1
+  optimizer_maxiter: 10 # Very fast
+  shots: 128 # Low shots
+  
+quantum_kernel:
+  reps_feature_map: 1
+  shots: 128
+  C: 1.0
+  gamma: "scale"
+
+# Quantum Backend
+quantum_backend:
+  backend_type: "simulator"
+  ibm_token: null 
+  ibm_backend_name: "ibm_torino"
+  shots: 128
+  optimization_level: 1
+  resilience_level: 0
+
+# Paths (Isolated)
+paths:
+  results_dir: "results_dryrun"
+  logs_dir: "results_dryrun/logs"
+  figures_dir: "results_dryrun/figures"

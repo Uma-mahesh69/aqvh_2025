@@ -1,147 +1,150 @@
-from __future__ import annotations
-from typing import Dict, Optional, Tuple
-import os
+"""
+Model Evaluation and Metrics Module
+Provides comprehensive evaluation capabilities for fraud detection models.
+"""
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, RocCurveDisplay, roc_curve, precision_recall_curve
-import matplotlib.pyplot as plt
+import logging
+from typing import Dict, Tuple, Optional
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, average_precision_score, confusion_matrix,
+    roc_curve, precision_recall_curve, classification_report
+)
+
+logger = logging.getLogger(__name__)
 
 
-def compute_metrics(y_true, y_pred, y_proba: Optional[np.ndarray] = None) -> Dict[str, float]:
-    """Compute classification metrics.
-    
-    NVIDIA Insight: AUC-ROC is the primary metric for fraud detection.
+def evaluate_model(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_proba: Optional[np.ndarray] = None
+) -> Dict[str, float]:
+    """
+    Compute comprehensive evaluation metrics.
     
     Args:
         y_true: True labels
         y_pred: Predicted labels
-        y_proba: Predicted probabilities (optional, for ROC-AUC)
-        
+        y_proba: Predicted probabilities (for ROC-AUC, PR-AUC)
+    
     Returns:
-        Dictionary of metric names and values
+        Dictionary of metrics
     """
-    # Ensure predictions are binary (handle multiclass output from quantum models)
-    y_pred_binary = np.where(y_pred > 0.5, 1, 0) if y_pred.dtype == float else y_pred
+    metrics = {}
     
-    # Check if we have more than 2 classes in predictions
-    unique_classes = np.unique(y_pred_binary)
-    if len(unique_classes) > 2:
-        # Force to binary by taking modulo 2 or thresholding
-        y_pred_binary = np.where(y_pred_binary >= 1, 1, 0)
+    # Basic classification metrics
+    metrics['accuracy'] = float(accuracy_score(y_true, y_pred))
+    metrics['precision'] = float(precision_score(y_true, y_pred, zero_division=0))
+    metrics['recall'] = float(recall_score(y_true, y_pred, zero_division=0))
+    metrics['f1_score'] = float(f1_score(y_true, y_pred, zero_division=0))
     
-    metrics = {
-        "accuracy": float(accuracy_score(y_true, y_pred_binary)),
-        "precision": float(precision_score(y_true, y_pred_binary, zero_division=0, average='binary')),
-        "recall": float(recall_score(y_true, y_pred_binary, zero_division=0, average='binary')),
-        "f1_score": float(f1_score(y_true, y_pred_binary, zero_division=0, average='binary')),
-    }
+    # Confusion matrix components
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    metrics['true_positives'] = int(tp)
+    metrics['false_positives'] = int(fp)
+    metrics['true_negatives'] = int(tn)
+    metrics['false_negatives'] = int(fn)
     
-    # Calculate False Positive Rate (FPR)
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
-    metrics["fpr"] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0
+    # Derived metrics
+    metrics['fpr'] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0
+    metrics['fnr'] = float(fn / (fn + tp)) if (fn + tp) > 0 else 0.0
+    metrics['specificity'] = float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0
     
-    
-    # AUC-ROC: Primary metric for fraud detection (NVIDIA insight)
+    # Probability-based metrics
     if y_proba is not None:
         try:
-            metrics["roc_auc"] = float(roc_auc_score(y_true, y_proba))
+            metrics['roc_auc'] = float(roc_auc_score(y_true, y_proba))
         except Exception as e:
-            print(f"Warning: Could not compute ROC-AUC: {e}")
-            pass
+            logger.warning(f"Could not compute ROC-AUC: {e}")
+            metrics['roc_auc'] = 0.0
+        
+        try:
+            metrics['pr_auc'] = float(average_precision_score(y_true, y_proba))
+        except Exception as e:
+            logger.warning(f"Could not compute PR-AUC: {e}")
+            metrics['pr_auc'] = 0.0
+    else:
+        metrics['roc_auc'] = 0.0
+        metrics['pr_auc'] = 0.0
     
     return metrics
 
 
-def find_optimal_threshold(y_true, y_proba) -> Tuple[float, float]:
+def optimize_threshold(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    metric: str = 'f1'
+) -> Tuple[float, float]:
     """
-    Find the threshold that maximizes the F1 score.
-    Crucial for imbalanced fraud data where 0.5 is rarely optimal.
-    
-    Returns:
-        best_threshold: The threshold giving max F1
-        best_f1: The max F1 score
-    """
-    precision, recall, thresholds = precision_recall_curve(y_true, y_proba)
-    # F1 = 2 * (P * R) / (P + R)
-    numerator = 2 * precision * recall
-    denominator = precision + recall
-    f1_scores = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator!=0)
-    
-    # Remove NaNs
-    f1_scores = np.nan_to_num(f1_scores)
-    
-    idx = np.argmax(f1_scores)
-    best_f1 = f1_scores[idx]
-    
-    # thresholds array is 1 shorter than precision/recall, so we pad or clamp
-    if idx < len(thresholds):
-        best_threshold = thresholds[idx]
-    else:
-        best_threshold = thresholds[-1]
-        
-    return float(best_threshold), float(best_f1)
-
-
-def save_pr_curve(estimator, X_test, y_test, out_path: str) -> None:
-    """Generate and save Precision-Recall curve plot.
-    
-    Args:
-        estimator: Trained classifier
-        X_test: Test features
-        y_test: Test labels
-        out_path: Output file path for the figure
-    """
-    try:
-        from sklearn.metrics import PrecisionRecallDisplay
-        PrecisionRecallDisplay.from_estimator(estimator, X_test, y_test)
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        plt.gcf().tight_layout()
-        plt.title("Precision-Recall Curve")
-        plt.savefig(out_path)
-        plt.close()
-    except Exception as e:
-        print(f"Warning: Could not save PR Curve: {e}")
-        pass
-
-
-def save_confusion_matrix(y_true, y_pred, out_path: str) -> None:
-    """Generate and save confusion matrix plot.
+    Find optimal classification threshold.
     
     Args:
         y_true: True labels
-        y_pred: Predicted labels
-        out_path: Output file path for the figure
-    """
-    cm = confusion_matrix(y_true, y_pred)
-    fig, ax = plt.subplots(figsize=(4, 4))
-    im = ax.imshow(cm, cmap="Blues")
-    ax.set_title("Confusion Matrix")
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("True")
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax.text(j, i, cm[i, j], ha="center", va="center", color="black")
-    fig.colorbar(im)
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-
-
-def save_roc_curve(estimator, X_test, y_test, out_path: str) -> None:
-    """Generate and save ROC curve plot.
+        y_proba: Predicted probabilities
+        metric: Metric to optimize ('f1', 'youden', 'precision_recall')
     
-    Args:
-        estimator: Trained classifier with predict_proba method
-        X_test: Test features
-        y_test: Test labels
-        out_path: Output file path for the figure
+    Returns:
+        optimal_threshold, best_metric_value
     """
-    try:
-        RocCurveDisplay.from_estimator(estimator, X_test, y_test)
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        plt.gcf().tight_layout()
-        plt.savefig(out_path)
-        plt.close()
-    except Exception:
-        # Some estimators may not support ROC directly
-        pass
+    if metric == 'f1':
+        # Optimize F1 score
+        precision, recall, thresholds = precision_recall_curve(y_true, y_proba)
+        
+        # Calculate F1 for each threshold
+        with np.errstate(divide='ignore', invalid='ignore'):
+            f1_scores = 2 * (precision * recall) / (precision + recall)
+            f1_scores = np.nan_to_num(f1_scores, 0.0)
+        
+        # Find best threshold
+        best_idx = np.argmax(f1_scores)
+        best_f1 = f1_scores[best_idx]
+        
+        # Handle threshold array length
+        if best_idx < len(thresholds):
+            best_threshold = thresholds[best_idx]
+        else:
+            best_threshold = 1.0
+        
+        return float(best_threshold), float(best_f1)
+    
+    elif metric == 'youden':
+        # Youden's J statistic (sensitivity + specificity - 1)
+        fpr, tpr, thresholds = roc_curve(y_true, y_proba)
+        j_scores = tpr - fpr
+        best_idx = np.argmax(j_scores)
+        best_threshold = thresholds[best_idx]
+        best_j = j_scores[best_idx]
+        
+        return float(best_threshold), float(best_j)
+    
+    else:
+        raise ValueError(f"Unknown metric: {metric}")
+
+
+def print_classification_report(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    model_name: str = "Model"
+):
+    """Print detailed classification report."""
+    print(f"\n{model_name} Classification Report:")
+    print("="*60)
+    print(classification_report(y_true, y_pred, target_names=['Legitimate', 'Fraud']))
+    print("="*60)
+
+
+def save_evaluation_report(
+    metrics: Dict[str, float],
+    model_name: str,
+    output_path: str
+):
+    """Save evaluation metrics to file."""
+    import json
+    
+    with open(output_path, 'w') as f:
+        json.dump({
+            'model': model_name,
+            'metrics': metrics
+        }, f, indent=2)
+    
+    logger.info(f"Evaluation report saved: {output_path}")

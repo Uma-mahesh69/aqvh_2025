@@ -1,0 +1,66 @@
+2026-02-03 13:45:12,461 - __main__ - INFO - ================================================================================
+2026-02-03 13:45:12,461 - __main__ - INFO - Experiment Runner Initialized: quantum-fraud-baseline_v2.0.0_ff128fa1
+2026-02-03 13:45:12,461 - __main__ - INFO - ================================================================================
+2026-02-03 13:45:12,461 - __main__ - INFO - Loading datasets...
+2026-02-03 13:45:12,515 - __main__ - INFO - Loaded 2000 transactions
+2026-02-03 13:45:12,522 - __main__ - INFO - Loaded 2000 identity records
+2026-02-03 13:45:12,526 - __main__ - INFO - Merged dataset: (2000, 434)
+2026-02-03 13:45:12,526 - __main__ - INFO - Fraud rate: 2.05% (41 frauds)
+2026-02-03 13:45:12,527 - __main__ - INFO - Starting preprocessing pipeline...
+2026-02-03 13:45:12,527 - src.preprocessing_v2 - INFO - Performing time-based split to prevent temporal leakage...
+2026-02-03 13:45:12,536 - src.preprocessing_v2 - INFO - Time-based split: Train fraud rate=0.0194, Test fraud rate=0.0250
+2026-02-03 13:45:12,536 - src.preprocessing_v2 - INFO - Train set: 1600 samples (31 fraud)
+2026-02-03 13:45:12,536 - src.preprocessing_v2 - INFO - Test set: 400 samples (10 fraud)
+2026-02-03 13:45:12,537 - src.preprocessing_v2 - INFO - Building and fitting preprocessing pipeline...
+2026-02-03 13:45:12,537 - src.preprocessing_v2 - INFO - Built preprocessing pipeline with 6 steps
+2026-02-03 13:45:12,537 - src.preprocessing_v2 - INFO - Fitting FeatureEngineer transformer...
+2026-02-03 13:45:12,540 - src.preprocessing_v2 - INFO - FeatureEngineer fitted. Freq encodings for 10 columns.
+2026-02-03 13:45:12,560 - src.preprocessing_v2 - INFO - Identified 230 columns with >50.0% missing
+2026-02-03 13:45:12,671 - src.preprocessing_v2 - INFO - Fitted imputers for 94 columns
+2026-02-03 13:45:12,755 - src.preprocessing_v2 - INFO - Fitted encoders for 9 categorical columns
+2026-02-03 13:45:13,349 - src.preprocessing_v2 - INFO - Fitted standard scaler on 224 columns
+2026-02-03 13:45:13,398 - src.preprocessing_v2 - INFO - PCA: 8 components explain 52.11% variance
+2026-02-03 13:45:13,691 - src.preprocessing_v2 - INFO - Preprocessing complete. Train shape: (1600, 10), Test shape: (400, 10)
+2026-02-03 13:45:13,707 - src.preprocessing_v2 - INFO - Preprocessing pipeline saved to results\artifacts\quantum-fraud-baseline_v2.0.0_ff128fa1_pipeline.pkl
+2026-02-03 13:45:13,707 - __main__ - INFO - Preprocessing complete:
+2026-02-03 13:45:13,708 - __main__ - INFO -   Train: (1600, 10), Fraud rate: 0.0194
+2026-02-03 13:45:13,708 - __main__ - INFO -   Test:  (400, 10), Fraud rate: 0.0250
+2026-02-03 13:45:13,708 - __main__ - INFO - 
+================================================================================
+2026-02-03 13:45:13,708 - __main__ - INFO - TRAINING CLASSICAL MODELS
+2026-02-03 13:45:13,708 - __main__ - INFO - ================================================================================
+2026-02-03 13:45:13,708 - src.models_v2 - INFO - Training Logistic Regression...
+2026-02-03 13:45:15,442 - src.models_v2 - INFO - Logistic Regression trained in 1.73s
+2026-02-03 13:45:15,446 - __main__ - INFO - logistic_regression - Optimal threshold: 0.9375 (F1: 0.1176)
+2026-02-03 13:45:15,453 - __main__ - INFO - logistic_regression Results: AUC=0.6679, F1=0.1176, Precision=0.0833
+2026-02-03 13:45:15,455 - __main__ - INFO - Model saved: results\models\quantum-fraud-baseline_v2.0.0_ff128fa1_logistic_regression.pkl
+2026-02-03 13:45:15,456 - src.models_v2 - INFO - Training Random Forest...
+2026-02-03 13:45:15,580 - src.models_v2 - INFO - Random Forest trained in 0.12s
+2026-02-03 13:45:15,625 - __main__ - INFO - random_forest - Optimal threshold: 0.0291 (F1: 0.1579)
+2026-02-03 13:45:15,631 - __main__ - INFO - random_forest Results: AUC=0.7773, F1=0.1579, Precision=0.0909
+2026-02-03 13:45:15,666 - __main__ - INFO - Model saved: results\models\quantum-fraud-baseline_v2.0.0_ff128fa1_random_forest.pkl
+2026-02-03 13:45:15,669 - src.models_v2 - INFO - Training XGBoost...
+2026-02-03 13:45:15,670 - src.models_v2 - INFO - Auto-calculated scale_pos_weight: 50.20
+2026-02-03 13:45:15,829 - src.models_v2 - INFO - XGBoost trained in 0.16s
+2026-02-03 13:45:15,832 - __main__ - INFO - xgboost - Optimal threshold: 0.0784 (F1: 0.3077)
+2026-02-03 13:45:15,840 - __main__ - INFO - xgboost Results: AUC=0.7767, F1=0.3077, Precision=0.6667
+2026-02-03 13:45:15,844 - __main__ - INFO - Model saved: results\models\quantum-fraud-baseline_v2.0.0_ff128fa1_xgboost.pkl
+2026-02-03 13:45:15,844 - __main__ - INFO - 
+================================================================================
+2026-02-03 13:45:15,844 - __main__ - INFO - TRAINING QUANTUM MODELS
+2026-02-03 13:45:15,845 - __main__ - INFO - ================================================================================
+2026-02-03 13:45:15,845 - __main__ - INFO - Number of features (qubits): 10
+2026-02-03 13:45:15,859 - src.models_v2 - INFO - Built VQC circuit: 10 qubits, 2 depth
+2026-02-03 13:45:15,860 - src.models_v2 - INFO - Training Quantum VQC...
+2026-02-03 13:45:35,300 - src.models_v2 - INFO - Quantum VQC trained in 19.44s
+2026-02-03 13:45:40,363 - __main__ - ERROR - Quantum VQC failed: index 1 is out of bounds for axis 1 with size 1
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 235, in train_quantum_models
+    metrics = self._evaluate_and_save(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 268, in _evaluate_and_save
+    y_proba = model.predict_proba(X_test.values)[:, 1]
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+IndexError: index 1 is out of bounds for axis 1 with size 1
+2026-02-03 13:45:40,365 - src.models_v2 - INFO - Built quantum feature map for kernel: 10 qubits
+2026-02-03 13:45:40,365 - src.models_v2 - INFO - Training Quantum SVM...

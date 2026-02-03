@@ -1,0 +1,72 @@
+# ==============================================================================
+# QUANTUM FRAUD DETECTION - ENVIRONMENT VARIABLES
+# ==============================================================================
+# Copy this file to .env and fill in your credentials
+# NEVER commit .env to version control!
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# IBM Quantum Configuration
+# ------------------------------------------------------------------------------
+# Get your token from: https://quantum.ibm.com/
+# Required only if using backend.type = "ibm_quantum" in config
+IBM_QUANTUM_TOKEN=your_ibm_quantum_token_here
+
+# Optional: Specify default backend if not in config
+IBM_QUANTUM_BACKEND=ibm_torino
+
+# Optional: Specify IBM Cloud instance
+IBM_QUANTUM_INSTANCE=ibm-q/open/main
+
+# ------------------------------------------------------------------------------
+# API Keys (for future extensions)
+# ------------------------------------------------------------------------------
+# OpenAI API Key (if using LLM features)
+OPENAI_API_KEY=your_openai_key_here
+
+# HuggingFace Token (for model downloads)
+HUGGINGFACE_TOKEN=your_huggingface_token_here
+
+# ------------------------------------------------------------------------------
+# Database Configuration (for production deployment)
+# ------------------------------------------------------------------------------
+DATABASE_URL=postgresql://user:password@localhost:5432/fraud_db
+REDIS_URL=redis://localhost:6379/0
+
+# ------------------------------------------------------------------------------
+# Monitoring & Logging
+# ------------------------------------------------------------------------------
+# Sentry DSN for error tracking
+SENTRY_DSN=your_sentry_dsn_here
+
+# Weights & Biases (W&B) for experiment tracking
+WANDB_API_KEY=your_wandb_key_here
+WANDB_PROJECT=quantum-fraud-detection
+WANDB_ENTITY=your_username
+
+# ------------------------------------------------------------------------------
+# Application Settings
+# ------------------------------------------------------------------------------
+# Environment: development, staging, production
+ENVIRONMENT=development
+
+# Debug mode
+DEBUG=false
+
+# Secret key for API authentication
+SECRET_KEY=your_secret_key_here
+
+# ------------------------------------------------------------------------------
+# Resource Limits (for cloud deployment)
+# ------------------------------------------------------------------------------
+MAX_MEMORY_MB=8192
+MAX_CPU_CORES=4
+TIMEOUT_SECONDS=300
+
+# ------------------------------------------------------------------------------
+# Feature Flags
+# ------------------------------------------------------------------------------
+ENABLE_QUANTUM_HARDWARE=false
+ENABLE_LLM_FEATURES=false
+ENABLE_MONITORING=true
+ENABLE_CACHING=true

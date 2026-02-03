@@ -1,0 +1,284 @@
+# ==============================================================================
+# QUANTUM FRAUD DETECTION - MASTER CONFIGURATION
+# ==============================================================================
+# Production-grade configuration with validation and environment separation
+# Version: 2.0
+# ==============================================================================
+
+experiment:
+  name: "quantum-fraud-baseline"
+  version: "2.0.0"
+  description: "Hybrid Classical-Quantum Fraud Detection"
+  random_seed: 42  # Global seed for reproducibility
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+# ==============================================================================
+# DATA CONFIGURATION
+# ==============================================================================
+data:
+  # Dataset paths
+  transaction_csv: "data/train_transaction.csv"
+  identity_csv: "data/train_identity.csv"
+  
+  # Sampling (null = use full dataset)
+  nrows: null  # Use null for production, 5000 for prototyping
+  
+  # Target column
+  target_col: "isFraud"
+  
+  # ID columns to exclude from features
+  id_cols:
+    - "TransactionID"
+  
+  # Time-based validation (prevents temporal leakage)
+  use_time_based_split: true
+  time_col: "TransactionDT"
+  test_size: 0.2
+
+# ==============================================================================
+# PREPROCESSING PIPELINE
+# ==============================================================================
+preprocessing:
+  # Feature Engineering
+  feature_engineering:
+    enabled: true
+    create_time_features: true
+    create_amount_features: true
+    create_uid_features: true
+    create_frequency_features: true
+    create_interaction_features: true
+  
+  # Cleaning
+  missing_threshold: 50.0  # Drop columns with >50% missing
+  imputation_strategy: "median"  # median, mean, mode
+  
+  # Feature Selection / Dimensionality Reduction
+  feature_selection:
+    method: "pca"  # pca, mutual_info, rf_importance, ensemble
+    n_components: 8  # For PCA or number of features to select
+    variance_threshold: 0.01  # Minimum variance for feature inclusion
+  
+  # Scaling
+  scaler: "standard"  # standard, minmax, robust
+  
+  # Class Imbalance Handling
+  resampling:
+    enabled: false  # Enable SMOTE for classical models
+    method: "smote"  # smote, adasyn, random_oversample
+    k_neighbors: 5
+    sampling_strategy: "auto"  # auto, minority, all
+  
+  # LLM Features (experimental)
+  llm_features:
+    enabled: false
+    model_name: "all-MiniLM-L6-v2"
+    n_components: 8
+    device: "cpu"
+
+# ==============================================================================
+# CLASSICAL MODELS
+# ==============================================================================
+classical_models:
+  enabled: true
+  
+  logistic_regression:
+    enabled: true
+    max_iter: 1000
+    C: 1.0
+    penalty: "l2"
+    solver: "lbfgs"
+    class_weight: "balanced"
+    n_jobs: -1
+  
+  random_forest:
+    enabled: true
+    n_estimators: 100
+    max_depth: 10
+    min_samples_split: 10
+    min_samples_leaf: 4
+    class_weight: "balanced"
+    n_jobs: -1
+    random_state: 42
+  
+  xgboost:
+    enabled: true
+    n_estimators: 200
+    max_depth: 8
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.4
+    scale_pos_weight: null  # Auto-calculated if null
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    early_stopping_rounds: 50
+    eval_metric: "logloss"
+    n_jobs: -1
+    random_state: 42
+  
+  isolation_forest:
+    enabled: false
+    n_estimators: 100
+    contamination: 0.035  # Expected fraud rate
+    max_samples: "auto"
+    n_jobs: -1
+    random_state: 42
+
+# ==============================================================================
+# QUANTUM MODELS
+# ==============================================================================
+quantum_models:
+  enabled: true
+  
+  # Quantum Backend Configuration
+  backend:
+    type: "simulator"  # simulator, aer, ibm_quantum
+    
+    # IBM Quantum Settings (loaded from environment if not specified)
+    ibm_token: null  # Set via IBM_QUANTUM_TOKEN env var
+    ibm_backend_name: "ibm_torino"  # ibm_torino, ibm_brisbane, ibm_kyoto
+    ibm_instance: null  # Optional: specific instance
+    
+    # Execution Settings
+    shots: 1024
+    optimization_level: 3  # 0-3, higher = more optimization
+    resilience_level: 1  # 0-2, error mitigation level
+    
+    # Limits (safety guards for hardware execution)
+    max_circuits_per_job: 100
+    max_shots_per_circuit: 8192
+    job_timeout: 3600  # seconds
+  
+  # Variational Quantum Classifier (VQC)
+  vqc:
+    enabled: true
+    
+    # Circuit Architecture
+    feature_map:
+      type: "ZZFeatureMap"  # ZZFeatureMap, ZFeatureMap, PauliFeatureMap
+      reps: 2
+      entanglement: "linear"  # linear, full, circular
+      alpha: 2.0  # Pauli rotation angle multiplier
+    
+    ansatz:
+      type: "RealAmplitudes"  # RealAmplitudes, EfficientSU2, TwoLocal
+      reps: 2
+      entanglement: "linear"
+      insert_barriers: false
+    
+    # Training
+    optimizer:
+      type: "COBYLA"  # COBYLA, SPSA, Adam
+      maxiter: 100
+      tol: 1e-6
+    
+    # Initial point
+    initial_point: "random"  # random, zeros, custom
+    initial_point_seed: 42
+  
+  # Quantum Kernel SVM
+  qsvm:
+    enabled: true
+    
+    # Feature Map (kernel)
+    feature_map:
+      type: "ZZFeatureMap"
+      reps: 2
+      entanglement: "linear"
+    
+    # SVM Parameters
+    C: 1.0
+    kernel: "precomputed"  # Always precomputed for quantum kernel
+    gamma: "scale"
+    class_weight: "balanced"
+    probability: true
+    cache_size: 1000  # MB
+    max_iter: -1
+
+# ==============================================================================
+# EVALUATION & METRICS
+# ==============================================================================
+evaluation:
+  # Primary Metrics
+  primary_metric: "roc_auc"  # roc_auc, f1, precision, recall
+  
+  # Threshold Optimization
+  optimize_threshold: true
+  threshold_metric: "f1"  # f1, youden, precision_recall
+  
+  # Cross-Validation (for model selection)
+  cv:
+    enabled: false  # Enable for hyperparameter tuning
+    n_folds: 5
+    stratified: true
+  
+  # Plots & Visualizations
+  generate_plots: true
+  plot_formats:
+    - "png"
+    - "pdf"
+  dpi: 300
+
+# ==============================================================================
+# OUTPUT & ARTIFACTS
+# ==============================================================================
+paths:
+  # Base directories
+  data_dir: "data"
+  results_dir: "results"
+  models_dir: "results/models"
+  artifacts_dir: "results/artifacts"
+  figures_dir: "results/figures"
+  logs_dir: "results/logs"
+  
+  # Experiment-specific subdirectories (auto-generated)
+  use_experiment_subdirs: true
+  experiment_dir_format: "{name}_{version}_{timestamp}"
+
+# ==============================================================================
+# DEPLOYMENT & INFERENCE
+# ==============================================================================
+deployment:
+  # API Configuration
+  api:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+    reload: false
+    log_level: "info"
+  
+  # Model Serving
+  model_selection: "quantum_vqc"  # quantum_vqc, qsvm, xgboost, ensemble
+  ensemble_weights:
+    xgboost: 0.6
+    quantum_vqc: 0.4
+  
+  # Performance
+  batch_size: 32
+  max_batch_wait: 100  # ms
+  
+  # Monitoring
+  enable_monitoring: true
+  track_latency: true
+  track_drift: true
+
+# ==============================================================================
+# ADVANCED SETTINGS
+# ==============================================================================
+advanced:
+  # Parallel Processing
+  n_jobs: -1  # -1 = all cores
+  parallel_backend: "loky"  # loky, threading, multiprocessing
+  
+  # Memory Management
+  low_memory_mode: false
+  chunk_size: 10000  # For large datasets
+  
+  # Caching
+  enable_caching: true
+  cache_dir: ".cache"
+  
+  # Debugging
+  verbose: 1  # 0 = silent, 1 = progress bars, 2 = detailed
+  save_intermediate: false  # Save intermediate pipeline steps
+  profile_performance: false  # Track execution times

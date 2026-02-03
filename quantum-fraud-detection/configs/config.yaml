@@ -14,8 +14,11 @@ data:
   identity_csv: "data/train_identity.csv"
   
   # Number of rows to load.
+  # Number of rows to load.
   # Set to null to load the entire dataset.
-  nrows: 500
+  # NOTE: Current results/ artifacts generated with nrows=20000 (30 min run).
+  # Reduce to 500 for quick testing.
+  nrows: 20000
   
   # Target column name
   target_col: "isFraud"  # IEEE-CIS target column is 'isFraud', not 'Class'
@@ -36,8 +39,8 @@ preprocessing:
 models_to_run:
   logistic_regression: true
   xgboost: true
-  quantum_vqc: false
-  quantum_kernel: true
+  quantum_vqc: true
+  quantum_kernel: false
 
 # Classical Model Hyperparameters
 logistic_regression:
@@ -67,7 +70,7 @@ xgboost:
 quantum_vqc:
   reps_feature_map: 1
   reps_ansatz: 1
-  optimizer_maxiter: 50
+  optimizer_maxiter: 100
   shots: 1024
   
 # Quantum Kernel Hyperparameters (SVM)

@@ -1,0 +1,196 @@
+2026-02-03 13:44:02,743 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:02,744 - __main__ - INFO - Experiment Runner Initialized: quantum-fraud-baseline_v2.0.0_702b6d71
+2026-02-03 13:44:02,744 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:02,744 - __main__ - INFO - Loading datasets...
+2026-02-03 13:44:02,763 - __main__ - INFO - Loaded 200 transactions
+2026-02-03 13:44:02,768 - __main__ - INFO - Loaded 200 identity records
+2026-02-03 13:44:02,778 - __main__ - INFO - Merged dataset: (200, 434)
+2026-02-03 13:44:02,778 - __main__ - INFO - Fraud rate: 0.00% (0 frauds)
+2026-02-03 13:44:02,778 - __main__ - INFO - Starting preprocessing pipeline...
+2026-02-03 13:44:02,778 - src.preprocessing_v2 - INFO - Performing time-based split to prevent temporal leakage...
+2026-02-03 13:44:02,780 - src.preprocessing_v2 - INFO - Time-based split: Train fraud rate=0.0000, Test fraud rate=0.0000
+2026-02-03 13:44:02,780 - src.preprocessing_v2 - INFO - Train set: 160 samples (0 fraud)
+2026-02-03 13:44:02,780 - src.preprocessing_v2 - INFO - Test set: 40 samples (0 fraud)
+2026-02-03 13:44:02,780 - src.preprocessing_v2 - INFO - Building and fitting preprocessing pipeline...
+2026-02-03 13:44:02,780 - src.preprocessing_v2 - INFO - Built preprocessing pipeline with 6 steps
+2026-02-03 13:44:02,781 - src.preprocessing_v2 - INFO - Fitting FeatureEngineer transformer...
+2026-02-03 13:44:02,785 - src.preprocessing_v2 - INFO - FeatureEngineer fitted. Freq encodings for 10 columns.
+2026-02-03 13:44:02,805 - src.preprocessing_v2 - INFO - Identified 232 columns with >50.0% missing
+2026-02-03 13:44:02,912 - src.preprocessing_v2 - INFO - Fitted imputers for 91 columns
+2026-02-03 13:44:02,998 - src.preprocessing_v2 - INFO - Fitted encoders for 9 categorical columns
+2026-02-03 13:44:03,057 - src.preprocessing_v2 - INFO - Fitted standard scaler on 222 columns
+2026-02-03 13:44:03,582 - src.preprocessing_v2 - INFO - PCA: 8 components explain 61.75% variance
+2026-02-03 13:44:03,590 - __main__ - ERROR - Experiment failed: "['isFraud'] not in index"
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 388, in run
+    pipeline, X_train, X_test, y_train, y_test = self.run_preprocessing(df)
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 118, in run_preprocessing
+    pipeline, X_train, X_test, y_train, y_test = preprocess_data(
+                                                 ^^^^^^^^^^^^^^^^
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\preprocessing_v2.py", line 536, in preprocess_data
+    X_train_transformed = pipeline.fit_transform(X_train_raw)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\base.py", line 1473, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\pipeline.py", line 541, in fit_transform
+    return last_step.fit_transform(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\utils\_set_output.py", line 316, in wrapped
+    data_to_wrap = f(self, X, *args, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\base.py", line 1098, in fit_transform
+    return self.fit(X, **fit_params).transform(X)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\utils\_set_output.py", line 316, in wrapped
+    data_to_wrap = f(self, X, *args, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\preprocessing_v2.py", line 355, in transform
+    excluded_data = X[self.exclude_cols] if self.exclude_cols else pd.DataFrame(index=X.index)
+                    ~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\frame.py", line 4108, in __getitem__
+    indexer = self.columns._get_indexer_strict(key, "columns")[1]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\indexes\base.py", line 6200, in _get_indexer_strict
+    self._raise_if_missing(keyarr, indexer, axis_name)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\indexes\base.py", line 6252, in _raise_if_missing
+    raise KeyError(f"{not_found} not in index")
+KeyError: "['isFraud'] not in index"
+2026-02-03 13:44:24,157 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:24,157 - __main__ - INFO - Experiment Runner Initialized: quantum-fraud-baseline_v2.0.0_702b6d71
+2026-02-03 13:44:24,157 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:24,157 - __main__ - INFO - Loading datasets...
+2026-02-03 13:44:24,169 - __main__ - INFO - Loaded 200 transactions
+2026-02-03 13:44:24,172 - __main__ - INFO - Loaded 200 identity records
+2026-02-03 13:44:24,174 - __main__ - INFO - Merged dataset: (200, 434)
+2026-02-03 13:44:24,174 - __main__ - INFO - Fraud rate: 0.00% (0 frauds)
+2026-02-03 13:44:24,174 - __main__ - INFO - Starting preprocessing pipeline...
+2026-02-03 13:44:24,175 - src.preprocessing_v2 - INFO - Performing time-based split to prevent temporal leakage...
+2026-02-03 13:44:24,176 - src.preprocessing_v2 - INFO - Time-based split: Train fraud rate=0.0000, Test fraud rate=0.0000
+2026-02-03 13:44:24,176 - src.preprocessing_v2 - INFO - Train set: 160 samples (0 fraud)
+2026-02-03 13:44:24,176 - src.preprocessing_v2 - INFO - Test set: 40 samples (0 fraud)
+2026-02-03 13:44:24,176 - src.preprocessing_v2 - INFO - Building and fitting preprocessing pipeline...
+2026-02-03 13:44:24,176 - src.preprocessing_v2 - INFO - Built preprocessing pipeline with 6 steps
+2026-02-03 13:44:24,177 - src.preprocessing_v2 - INFO - Fitting FeatureEngineer transformer...
+2026-02-03 13:44:24,178 - src.preprocessing_v2 - INFO - FeatureEngineer fitted. Freq encodings for 10 columns.
+2026-02-03 13:44:24,189 - src.preprocessing_v2 - INFO - Identified 232 columns with >50.0% missing
+2026-02-03 13:44:24,291 - src.preprocessing_v2 - INFO - Fitted imputers for 91 columns
+2026-02-03 13:44:24,396 - src.preprocessing_v2 - INFO - Fitted encoders for 9 categorical columns
+2026-02-03 13:44:24,461 - src.preprocessing_v2 - INFO - Fitted standard scaler on 222 columns
+2026-02-03 13:44:25,186 - src.preprocessing_v2 - INFO - PCA: 8 components explain 61.75% variance
+2026-02-03 13:44:25,313 - src.preprocessing_v2 - INFO - Preprocessing complete. Train shape: (160, 10), Test shape: (40, 10)
+2026-02-03 13:44:25,325 - src.preprocessing_v2 - INFO - Preprocessing pipeline saved to results\artifacts\quantum-fraud-baseline_v2.0.0_702b6d71_pipeline.pkl
+2026-02-03 13:44:25,325 - __main__ - INFO - Preprocessing complete:
+2026-02-03 13:44:25,326 - __main__ - INFO -   Train: (160, 10), Fraud rate: 0.0000
+2026-02-03 13:44:25,326 - __main__ - INFO -   Test:  (40, 10), Fraud rate: 0.0000
+2026-02-03 13:44:25,326 - __main__ - INFO - 
+================================================================================
+2026-02-03 13:44:25,326 - __main__ - INFO - TRAINING CLASSICAL MODELS
+2026-02-03 13:44:25,327 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:25,327 - src.models_v2 - INFO - Training Logistic Regression...
+2026-02-03 13:44:25,327 - __main__ - ERROR - Logistic Regression failed: This solver needs samples of at least 2 classes in the data, but the data contains only one class: np.int64(0)
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 155, in train_classical_models
+    model.fit(X_train.values, y_train.values)
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\models_v2.py", line 97, in fit
+    self.model.fit(X, y)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\base.py", line 1473, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\linear_model\_logistic.py", line 1301, in fit
+    raise ValueError(
+ValueError: This solver needs samples of at least 2 classes in the data, but the data contains only one class: np.int64(0)
+2026-02-03 13:44:25,344 - src.models_v2 - INFO - Training Random Forest...
+2026-02-03 13:44:25,449 - src.models_v2 - INFO - Random Forest trained in 0.11s
+2026-02-03 13:44:25,481 - __main__ - ERROR - Random Forest failed: index 1 is out of bounds for axis 1 with size 1
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 177, in train_classical_models
+    metrics = self._evaluate_and_save(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 268, in _evaluate_and_save
+    y_proba = model.predict_proba(X_test.values)[:, 1]
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+IndexError: index 1 is out of bounds for axis 1 with size 1
+2026-02-03 13:44:25,484 - src.models_v2 - INFO - Training XGBoost...
+2026-02-03 13:44:25,484 - src.models_v2 - INFO - Auto-calculated scale_pos_weight: 1.00
+2026-02-03 13:44:25,509 - __main__ - ERROR - XGBoost failed: [13:44:25] C:\actions-runner\_work\xgboost\xgboost\src\objective\./regression_loss.h:68: Check failed: base_score > 0.0f && base_score < 1.0f: base_score must be in (0,1) for logistic loss, got: 0
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 198, in train_classical_models
+    model.fit(X_tr.values, y_tr.values, X_val.values, y_val.values)
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\models_v2.py", line 193, in fit
+    self.model.fit(
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\core.py", line 729, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\sklearn.py", line 1683, in fit
+    self._Booster = train(
+                    ^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\core.py", line 729, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\training.py", line 183, in train
+    bst.update(dtrain, iteration=i, fobj=obj)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\core.py", line 2246, in update
+    _check_call(
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\xgboost\core.py", line 310, in _check_call
+    raise XGBoostError(py_str(_LIB.XGBGetLastError()))
+xgboost.core.XGBoostError: [13:44:25] C:\actions-runner\_work\xgboost\xgboost\src\objective\./regression_loss.h:68: Check failed: base_score > 0.0f && base_score < 1.0f: base_score must be in (0,1) for logistic loss, got: 0
+2026-02-03 13:44:25,548 - __main__ - INFO - 
+================================================================================
+2026-02-03 13:44:25,548 - __main__ - INFO - TRAINING QUANTUM MODELS
+2026-02-03 13:44:25,548 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:25,548 - __main__ - INFO - Number of features (qubits): 10
+2026-02-03 13:44:25,565 - src.models_v2 - INFO - Built VQC circuit: 10 qubits, 2 depth
+2026-02-03 13:44:25,566 - src.models_v2 - INFO - Training Quantum VQC...
+2026-02-03 13:44:25,569 - __main__ - ERROR - Quantum VQC failed: 'The target values appear to be multi-classified. The neural network output shape is only suitable for binary classification.'
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 232, in train_quantum_models
+    model.fit(X_train.values, y_train.values)
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\models_v2.py", line 440, in fit
+    self.model.fit(X, y)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\qiskit_machine_learning\algorithms\trainable_model.py", line 199, in fit
+    self._fit_result = self._fit_internal(X, y)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\qiskit_machine_learning\algorithms\classifiers\neural_network_classifier.py", line 115, in _fit_internal
+    function = self._create_objective(X, y)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\qiskit_machine_learning\algorithms\classifiers\neural_network_classifier.py", line 132, in _create_objective
+    self._validate_binary_targets(y)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\qiskit_machine_learning\algorithms\classifiers\neural_network_classifier.py", line 289, in _validate_binary_targets
+    raise QiskitMachineLearningError(
+qiskit_machine_learning.exceptions.QiskitMachineLearningError: 'The target values appear to be multi-classified. The neural network output shape is only suitable for binary classification.'
+2026-02-03 13:44:25,601 - src.models_v2 - INFO - Built quantum feature map for kernel: 10 qubits
+2026-02-03 13:44:25,601 - src.models_v2 - INFO - Training Quantum SVM...
+2026-02-03 13:44:25,611 - __main__ - ERROR - Quantum SVM failed: The number of classes has to be greater than one; got 1 class
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 251, in train_quantum_models
+    model.fit(X_train.values, y_train.values)
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\src\models_v2.py", line 537, in fit
+    self.model.fit(X, y)
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\base.py", line 1473, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\svm\_base.py", line 199, in fit
+    y = self._validate_targets(y)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\svm\_base.py", line 742, in _validate_targets
+    raise ValueError(
+ValueError: The number of classes has to be greater than one; got 1 class
+2026-02-03 13:44:25,628 - __main__ - INFO - 
+================================================================================
+2026-02-03 13:44:25,628 - __main__ - INFO - RESULTS SUMMARY
+2026-02-03 13:44:25,628 - __main__ - INFO - ================================================================================
+2026-02-03 13:44:25,629 - __main__ - ERROR - Experiment failed: 'roc_auc'
+Traceback (most recent call last):
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 397, in run
+    self.generate_comparison_report()
+  File "D:\quantum_valley\quantum-fraud-detection\aqvh_2025\quantum-fraud-detection\run_experiment.py", line 306, in generate_comparison_report
+    df_results = df_results.sort_values('roc_auc', ascending=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\frame.py", line 7189, in sort_values
+    k = self._get_label_or_level_values(by[0], axis=axis)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\generic.py", line 1911, in _get_label_or_level_values
+    raise KeyError(key)
+KeyError: 'roc_auc'

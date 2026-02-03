@@ -111,7 +111,13 @@ class FraudInference:
         if 'llm_extractor' in self.artifacts:
             extractor = self.artifacts['llm_extractor']
             # We assume extractor is already fitted
-            text_cols = ['TransactionAmt', 'ProductCD', 'card4', 'card6', 'P_emaildomain', 'R_emaildomain']
+            # Must match cols used in preprocessing.py exactly
+            text_cols = ['DeviceInfo', 'P_emaildomain', 'R_emaildomain', 'id_30', 'id_31', 'DeviceType']
+            # Ensure these columns exist, else fill empty
+            for c in text_cols:
+                if c not in df_eng.columns:
+                    df_eng[c] = ""
+            
             df_llm = extractor.transform(df_eng, text_cols)
             df_eng = pd.concat([df_eng, df_llm], axis=1)
 

@@ -38,7 +38,13 @@ uvicorn src.api:app --reload
 ```
 API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 3. Verification Script
+### 3. Launch the Dashboard (Demo Mode)
+Start the interactive "Mission Control" UI for the Hackathon presentation:
+```bash
+streamlit run app.py
+```
+
+### 4. Verification Script
 Run a quick sanity check of the quantum backend:
 ```bash
 python scripts/verify_refactor.py

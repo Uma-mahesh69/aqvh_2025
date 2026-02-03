@@ -6,48 +6,47 @@ CLASSICAL MODELS PERFORMANCE
 --------------------------------------------------------------------------------
 
 Logistic Regression:
-  Accuracy: 0.7700
-  Precision: 0.0833
-  Recall: 0.6667
-  F1_score: 0.1481
-  Fpr: 0.2268
-  Roc_auc: 0.7354
-  Training_time: 0.0268
-  Optimal_threshold: 0.2902
+  Accuracy: 0.9437
+  Precision: 0.1545
+  Recall: 0.1357
+  F1_score: 0.1445
+  Fpr: 0.0269
+  Roc_auc: 0.6854
+  Training_time: 0.0383
+  Optimal_threshold: 0.8217
 
 Isolation Forest:
-  Accuracy: 0.2000
-  Precision: 0.0361
+  Accuracy: 0.0400
+  Precision: 0.0352
   Recall: 1.0000
-  F1_score: 0.0698
-  Fpr: 0.8247
-  Roc_auc: 0.3471
-  Training_time: 0.1507
-  Optimal_threshold: 0.5162
+  F1_score: 0.0680
+  Fpr: 0.9948
+  Roc_auc: 0.3261
+  Training_time: 0.2181
+  Optimal_threshold: 0.4543
 
 XGBoost:
-  Accuracy: 0.8600
-  Precision: 0.1333
-  Recall: 0.6667
-  F1_score: 0.2222
-  Fpr: 0.1340
-  Roc_auc: 0.7371
-  Training_time: 0.0879
-  Optimal_threshold: 0.0253
+  Accuracy: 0.9505
+  Precision: 0.2542
+  Recall: 0.2143
+  F1_score: 0.2326
+  Fpr: 0.0228
+  Roc_auc: 0.7429
+  Training_time: 0.0699
+  Optimal_threshold: 0.1326
 
 
 QUANTUM MODELS PERFORMANCE
 --------------------------------------------------------------------------------
 
-Quantum Kernel:
-  Accuracy: 0.7700
-  Precision: 0.0833
-  Recall: 0.6667
-  F1_score: 0.1481
-  Fpr: 0.2268
-  Roc_auc: 0.7423
-  Training_time: 396.4474
-  Optimal_threshold: 0.0390
+Quantum VQC:
+  Accuracy: 0.4818
+  Precision: 0.0292
+  Recall: 0.4286
+  F1_score: 0.0547
+  Fpr: 0.5163
+  Training_time: 1920.7159
+  Optimal_threshold: 0.5000
 
 
 ================================================================================

@@ -91,6 +91,24 @@ class FraudDetectionPipeline:
         if run_cfg.get("quantum_kernel", False):
             self.train_evaluate("Quantum Kernel", train_quantum_kernel, self.get_kernel_config(), X_train, y_train, X_test, y_test)
             
+        # Generate Quantum Explainability Artifacts (Kernel Comparison)
+        try:
+            from src.explainability import compute_and_plot_kernels
+            logging.info("Generating Explainability Artifacts...")
+            # Take a small sample from Test set (e.g. 30 samples)
+            # Stratified sample if possible, or just random
+            if len(X_test) > 30:
+                indices = np.random.choice(len(X_test), 30, replace=False)
+                X_sample = X_test[indices]
+                y_sample = y_test.iloc[indices].values
+            else:
+                X_sample = X_test
+                y_sample = y_test.values
+                
+            compute_and_plot_kernels(X_sample, y_sample, os.path.join(self.figures_dir, "kernel_comparison.png"))
+        except Exception as e:
+            logging.warning(f"Failed to generate explainability artifacts: {e}")
+
         # Save overarching results
         self.save_summary()
 
@@ -109,7 +127,8 @@ class FraudDetectionPipeline:
             top_k_features=self.cfg["preprocessing"].get("top_k_features", 8),
             use_llm_features=self.cfg["preprocessing"].get("use_llm_features", False),
             use_smote=self.cfg["preprocessing"].get("use_smote", False),
-            smote_k_neighbors=self.cfg["preprocessing"].get("smote_k_neighbors", 5)
+            smote_k_neighbors=self.cfg["preprocessing"].get("smote_k_neighbors", 5),
+            test_size=self.cfg["preprocessing"].get("test_size", 0.2)
         )
         
         # 1. Feature Engineering & Cleaning (Row-wise only)
@@ -118,7 +137,20 @@ class FraudDetectionPipeline:
         
         # 2. Split Data FIRST (Crucial for preventing leakage)
         # We split the ID/Time columns too so we can drop them later
-        X_train_df, X_test_df, y_train, y_test = split_data(df_processed, pp_cfg.target_col)
+        # Use Time-Based split for production realism
+        from src.preprocessing import split_data_time_based
+        
+        if 'TransactionDT' in df_processed.columns:
+            logging.info("Using Time-Based Split (TransactionDT)...")
+            X_train_df, X_test_df, y_train, y_test = split_data_time_based(
+                df_processed, 
+                target=pp_cfg.target_col, 
+                time_col='TransactionDT', 
+                test_size=pp_cfg.test_size
+            )
+        else:
+            logging.warning("TransactionDT not found. Key time-based splitting unavailable. Falling back to random split.")
+            X_train_df, X_test_df, y_train, y_test = split_data(df_processed, pp_cfg.target_col, test_size=pp_cfg.test_size)
         
         logging.info(f"Data Split: Train={len(X_train_df)}, Test={len(X_test_df)}")
         
@@ -128,16 +160,24 @@ class FraudDetectionPipeline:
         
         logging.info("Fitting Transformation Pipeline on Training Data...")
         # Select only the input feature columns
-        X_train_input = X_train_df[input_features]
+        # Note: X_train_df DOES NOT contain the target or time col anymore (dropped in split func)
+        # But it might contain other excludes?
+        # input_features list from preprocess_pipeline includes ALL cols except target/ids/time
+        # So we can just select them safely.
+        
+        # Ensure all input_features exist (some might have been dropped if they were the time col)
+        valid_input_feats = [f for f in input_features if f in X_train_df.columns]
+        
+        X_train_input = X_train_df[valid_input_feats]
         transform_pipeline.fit(X_train_input)
         
         # 4. Transform Data
         X_train_transformed = transform_pipeline.transform(X_train_input)
-        X_test_transformed = transform_pipeline.transform(X_test_df[input_features])
+        X_test_transformed = transform_pipeline.transform(X_test_df[valid_input_feats])
         
         # Store pipeline for inference
         artifacts['pipeline'] = transform_pipeline
-        artifacts['input_features'] = input_features # Features expected by pipeline
+        artifacts['input_features'] = valid_input_feats # Update to valid ones
         artifacts['output_features'] = output_feature_names # Features produced by pipeline (e.g. PCA_0...)
         
         self.artifacts.update(artifacts)

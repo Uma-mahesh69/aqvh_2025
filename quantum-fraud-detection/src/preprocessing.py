@@ -31,6 +31,9 @@ class PreprocessConfig:
     # Class Imbalance Handling
     use_smote: bool = False
     smote_k_neighbors: int = 5
+    
+    # Split
+    test_size: float = 0.2
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
